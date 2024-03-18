@@ -9,6 +9,7 @@
 #include <iostream>
 #include <ostream>
 #include <vector>
+#include <regex>
 #include <c++/11/regex>
 #include "Graph.cpp"
 #include "Formatdata.cpp"
@@ -37,13 +38,15 @@ public:
         //Formatdata<vertextype,strtype,Vertices,Batchprocesseddata<strtype>>::~Formatdata();
     }
 
+
 protected:
-    void parseexternal(const std::string str, std::vector<strtype>* out) override {
-        out->push_back(str);
+
+    void parseexternal(std::string* str, std::vector<strtype>* out) override {
+        out->push_back(*str);
     }
 
-    void parseinternal(const std::string str, std::vector<vertextype>* out) override {
-        out->push_back(Formatdata<vertextype,strtype,Vertices,Batchprocesseddata<strtype>>::lookup(str));
+    void parseinternal(std::string* str, std::vector<vertextype>* out) override {
+        out->push_back(Formatdata<vertextype,strtype,Vertices,Batchprocesseddata<strtype>>::lookup(*str));
     }
 };
 
@@ -113,7 +116,7 @@ public:
     }
     ~Formatedges() {
     }
-    Formatvertices* FV;  // Formatedges is not responsible for memory management of this pointer
+    Formatvertices* FV {};  // Formatedges is not responsible for memory management of this pointer
     void setvertices( Formatvertices* FVin ) {
         bool b = paused();
         pause();
@@ -128,31 +131,39 @@ public:
         }
     }
 
+
 protected:
-    void parseexternal(const std::string str, std::vector<Edgestr>* edge) override {
-        Edgestr e;
+    void parseexternal(std::string* str, std::vector<Edgestr>* edge) override {
+        if (str->size()==0)
+            return;
         std::regex pat {"([a-zA-Z]{1}[\\d_]*)"};
         int n = 0;
         std::vector<strtype> v;
-        for (std::sregex_iterator p(str.begin(),str.end(),pat); p != std::sregex_iterator{};++p)
+        for (std::sregex_iterator p(str->begin(),str->end(),pat); p != std::sregex_iterator{};++p)
             v.push_back((*p)[1]);
         std::sort(v.begin(), v.end());
-        for (int m = 0; m < v.size(); ++m) {
-            for (int n = m+1; n < v.size(); ++n) {
+        int sz = v.size();
+        Edgestr e;
+        int j = 0;
+        for (int m = 0; m < sz; ++m) {
+            for (int n = m+1; n < sz; ++n) {
                 e.first = v[m];
                 e.second = v[n];
                 edge->push_back(e);
+                ++j;
                 //std::cout << "v[m]: " << v[m] << " v[n]: " << v[n] << "\n";
             }
         }
     }
 
-    void parseinternal(const std::string str, std::vector<Edge>* edge) override {
+    void parseinternal(std::string* str, std::vector<Edge>* edge) override {
+        if (str->size()==0)
+            return;
         Edgestr es;
         std::regex pat {"([a-zA-Z]{1}[\\d_]*)"};
         int n = 0;
         std::vector<strtype> v;
-        for (std::sregex_iterator p(str.begin(),str.end(),pat); p != std::sregex_iterator{};++p)
+        for (std::sregex_iterator p(str->begin(),str->end(),pat); p != std::sregex_iterator{};++p)
             v.push_back((*p)[1]);
         std::sort(v.begin(), v.end());
         for (int m = 0; m < v.size(); ++m) {
@@ -166,115 +177,108 @@ protected:
     }
 };
 
-class Formatcover : public Formatdata<Edges,Edgestr*,Cover,Batchprocesseddata<Edgestr*>> {
+class Formatcover : public Formatdata<Edges,std::vector<Edgestr>,Cover,Batchprocesseddata<std::vector<Edgestr>>> {
 public:
-    Formatcover( Cover* iin, Batchprocesseddata<Edgestr*>* ein )
-            : Formatdata<Edges,Edgestr*,Cover,Batchprocesseddata<Edgestr*>>( *iin, *ein ) {
+    Formatcover( Cover* iin, Batchprocesseddata<std::vector<Edgestr>>* ein )
+            : Formatdata<Edges,std::vector<Edgestr>,Cover,Batchprocesseddata<std::vector<Edgestr>>>( *iin, *ein ) {
         //
     }
-    Formatcover( Cover* iin ) : Formatdata<Edges,Edgestr*,Cover,Batchprocesseddata<Edgestr*>>( *iin ) {
+    Formatcover( Cover* iin ) : Formatdata<Edges,std::vector<Edgestr>,Cover,Batchprocesseddata<std::vector<Edgestr>>>( *iin ) {
         //
     }
-    Formatcover(std::istream &is) : Formatdata<Edges,Edgestr*,Cover,Batchprocesseddata<Edgestr*>>(is) {
+    Formatcover(std::istream &is) : Formatdata<Edges,std::vector<Edgestr>,Cover,Batchprocesseddata<std::vector<Edgestr>>>(is) {
         //
     }
-    Formatcover(int s) : Formatdata<Edges,Edgestr*,Cover,Batchprocesseddata<Edgestr*>>(s) {
+    Formatcover(int s) : Formatdata<Edges,std::vector<Edgestr>,Cover,Batchprocesseddata<std::vector<Edgestr>>>(s) {
         //
     }
-    Formatcover() : Formatdata<Edges,Edgestr*,Cover,Batchprocesseddata<Edgestr*>>() {
+    Formatcover() : Formatdata<Edges,std::vector<Edgestr>,Cover,Batchprocesseddata<std::vector<Edgestr>>>() {
         //
     }
     ~Formatcover() {
     }
     Formatvertices* FV;  // Formatedges is not responsible for memory management of this pointer
     void setvertices( Formatvertices* FVin ) {
-        bool b = paused();
+
+        bool p = paused();
         pause();
         int sz = size();
         FV = FVin;
         for (int n = 0; n < sz; ++n) {
             Edges E = idata->getdata(n);
-            Edgestr* ES = edata->getdata(n);
+            std::vector<Edgestr> ES = edata->getdata(n);
             int sz2 = E.size();
             for (int i = 0; i < sz2; ++i) {
                 Edge e = E.getdata(i);
                 Edgestr es = ES[i];
                 e.first = FV->lookup(es.first);
                 e.second = FV->lookup(es.second);
-                E.setdata(e, n);
+                E.setdata(e, i);
             }
         }
+        if (!p)
+            resume();
     }
 
 protected:
-    void parseexternal(const std::string str, std::vector<Edgestr*>* edges ) override {
+    void parseexternal(std::string* str, std::vector<std::vector<Edgestr>>* edges ) override {
+        if (str->size()==0)
+            return;
+
+        Edgestr e;
         std::regex pat {"([a-zA-Z]{1}[\\d_]*)"};
         int n = 0;
         std::vector<strtype> v;
-        for (std::sregex_iterator p(str.begin(),str.end(),pat); p != std::sregex_iterator{};++p)
+        for (std::sregex_iterator p(str->begin(),str->end(),pat); p != std::sregex_iterator{};++p)
             v.push_back((*p)[1]);
         std::sort(v.begin(), v.end());
-        int j = 0;
+
         int sz = v.size();
-        Edgestr* e[sz*(sz-1)];
-        for (int k = 0; k < sz*(sz-1); ++k) {
-            e[k] = new Edgestr;
-        }
-        for (int m = 0; m < sz; ++m) {
-            for (int n = m+1; n < sz; ++n) {
-                e[j]->first = v[m];
-                e[j]->second = v[n];
-                ++j;
+        std::vector<Edgestr> tempedge {};
+        for (int m = 0; m < v.size(); ++m) {
+            for (int n = m+1; n < v.size(); ++n) {
+                e.first = v[m];
+                e.second = v[n];
+                tempedge.push_back(e);
                 //std::cout << "v[m]: " << v[m] << " v[n]: " << v[n] << "\n";
             }
         }
-        edges->push_back(*e);
+        edges->push_back(tempedge);
     }
 
-    void parseinternal(const std::string str, std::vector<Edges>* edges) override {
+
+    void parseinternal(std::string* str, std::vector<Edges>* edges) override {
+        if (str->size()==0)
+            return;
+
+        Edgestr e;
         std::regex pat {"([a-zA-Z]{1}[\\d_]*)"};
         int n = 0;
         std::vector<strtype> v;
-        for (std::sregex_iterator p(str.begin(),str.end(),pat); p != std::sregex_iterator{};++p)
+        for (std::sregex_iterator p(str->begin(),str->end(),pat); p != std::sregex_iterator{};++p)
             v.push_back((*p)[1]);
         std::sort(v.begin(), v.end());
-        int j = 0;
-        int sz = v.size();
-        Edgestr* e[sz*(sz-1)];
-        for (int k = 0; k < sz*(sz-1); ++k) {
-            e[k] = new Edgestr;
-        }
+        std::vector<Edgestr> tempedge {};
         for (int m = 0; m < v.size(); ++m) {
             for (int n = m+1; n < v.size(); ++n) {
-                e[j]->first = v[m];
-                e[j]->second = v[n];
+                e.first = v[m];
+                e.second = v[n];
+                tempedge.push_back(e);
                 //std::cout << ":: v[m]: " << v[m] << " v[n]: " << v[n] << "\n";
-                ++j;
+
             }
         }
-        // lookup which edge matches e (until refactoring the lookup stuff)
 
-        for (int m = 0; m < idata->size(); ++m) {
-            Edgestr* etemp = edata->getdata(m);
-            if (j == edata->size()) {
-                bool match = false;
-                bool allmatch = true;
-                for (int k = 0; k < j; ++k) {
-                    for (int l = 0; l < j; ++l) {
-                        match = match ||
-                                (etemp[k].first == e[l]->first && etemp[k].second == e[l]->second) ||
-                                (etemp[k].second == e[l]->first && etemp[k].first == e[l]->second);
-                    }
-                    allmatch = allmatch && match;
-                }
-                if (allmatch)
-                    edges->push_back(idata->getdata(m));
-            }
+        Edges etmp = lookup(tempedge);
+        etmp.setsize(tempedge.size());
+        int sz = etmp.size();
+/*        for (int n = 0; n < sz; ++n) {
+            std::cout << "[" << etmp.getdata(n).first << "," << etmp.getdata(n).second << "]";
+            if (n < sz-1)
+                std::cout << ",";
         }
-    }
-
-    void cleanup() {
-
+        std::cout << etmp << " (lookup) \n";*/
+        edges->push_back(etmp);
     }
 
 };

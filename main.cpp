@@ -48,52 +48,43 @@ int main(int argc, char *argv[]) {
 */
 
     std::ifstream ifs;
+    std::istream* s = &std::cin;
     if (argc > 1) {
         std::string filename = argv[1];
         std::cout << "Opening file " << filename << "\n";
         ifs.open(filename);
         if (!ifs)
             std::cout << "Couldn't open file for reading \n";
+        s = &ifs;
+    } else {
+        std::cout << "Enter a filename or enter T for terminal mode: ";
+        std::string filename;
+        std::cin >> filename;
+        if (filename != "T") {
+            ifs.open(filename);
+            if (!ifs)
+                std::cout << "Couldn't open file for reading \n";
+            s = &ifs;
+        }
     }
 
-    //std::cout << "How many vertices? ";
-    //std::cin >> sV;
     auto V = new Vertices();
     auto EV = new Batchprocesseddata<strtype>();
     auto FV = new Formatvertices(V,EV);
     FV->pause();
-    FV->readdata(ifs);
+    FV->readdata(*s);
     FV->resume();
     int sV = FV->size();
     for( int n = 0; n<sV; ++n)
         std::cout << n << "{" << FV->idata->getdata(n) << ":" << FV->edata->getdata(n) << "}, ";
     std::cout << "\n";
-    //std::cout << "How many edges? ";
-    //std::cin >> sE;
-/*
-    auto E = new Edges(10);
-    E->pause();
-    Edge e;
-    e.first = 0;
-    e.second = 1;
-    E->setdata(e,0);
-    e.first = 3;
-    e.second = 2;
-    E->setdata(e,1);
-    for (int n = 0;n<E->size();++n) {
-        std::cout << "n: " << n << " " << E->getdata(n) << "\n";
-    }
-    E->resume();
-    for (int n = 0;n<E->size();++n) {
-        std::cout << "n: " << n << " " << E->getdata(n) << "\n";
-    }*/
-
 
     auto E = new Edges();
     auto EE = new Batchprocesseddata<Edgestr>();
     auto FE = new Formatedges(E,EE);
     FE->pause();
-    FE->readdata(ifs);
+    FE->readdata(*s);
+
     FE->setvertices(FV);
     FE->resume();
     int sE = FE->size();
@@ -106,19 +97,20 @@ int main(int argc, char *argv[]) {
     //std::cout << "computemaxdegree: " << E->computemaxdegree() << "\n";
 
     auto C = new Cover();
-    auto EC = new Batchprocesseddata<Edgestr*>();
+    auto EC = new Batchprocesseddata<std::vector<Edgestr>>();
     auto FC = new Formatcover(C,EC);
     FC->pause();
-    FC->readdata(ifs); //replace with std::cin for a console input
+    FC->readdata(*s);
     FC->setvertices(FV);
     FC->resume();
     int sC = FC->size();
-    for (int m = 0; m < sE; ++m) {
+    for (int m = 0; m < sC; ++m) {
         int sc = FC->idata->getdata(m).size();
         std::cout << "C[" << m << "]: ";
         for (int n = 0; n < sc; ++n) {
-            std::cout << FC->edata->getdata(m)[n];
+            std::cout << FC->idata->getdata(m)[n] << ": " << FC->edata->getdata(m)[n] << ", ";
         }
+        std::cout << "\n";
     }
     std::cout << "\n";
 

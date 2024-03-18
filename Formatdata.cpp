@@ -16,13 +16,13 @@
 
 template<typename I, typename E, typename IBPD, typename EBPD>
 class Formatdata : public Batchprocessed {
-private:
-    int size_ = 0;
+
 protected:
-    virtual void parseexternal(const std::string str, std::vector<E>*) = 0;
-    virtual void parseinternal(const std::string str, std::vector<I>*) = 0;
+    virtual void parseexternal(std::string* str, std::vector<E>*) = 0;
+    virtual void parseinternal(std::string* str, std::vector<I>*) = 0;
 
 public:
+    int size_ = 0;
     IBPD* idata = nullptr;
     EBPD* edata = nullptr;
 
@@ -32,7 +32,7 @@ public:
         if (paused())
             return size_;
         else
-            return idata->size()>=edata->size() ? idata->size() : edata->size();
+            return (idata->size()<=edata->size()) ? idata->size() : edata->size();
     }
 
     virtual void readdata(std::istream& is) {
@@ -41,26 +41,31 @@ public:
         if (!idata || !edata)
             throw std::exception();
         int s=0;
-        std::vector<E> eres;
+
+        std::vector<E> eres{};
         std::string tmp = "";
         std::string tmp2 = "";
         while ((is >> tmp) && (tmp != "END")) {
-            parseexternal(tmp,&eres);
+            parseexternal(&tmp, &eres);
             tmp2 += tmp + " ";
             tmp = "";
             s++;
         }
         edata->readvector(eres);
+        edata->removeduplicates();
         size_ = edata->size(); // may be larger than s due to condensed parsing
         idata->setsize(size_);
-        std::vector<I> ires;
-        std::regex pat {"([\\w]+)"};
-        int n = 0;
-        for (std::sregex_iterator p(tmp2.begin(),tmp2.end(),pat); p != std::sregex_iterator{};++p) {
-            parseinternal((*p)[1],&ires);
-            ++n;
+        std::vector<I> ires {};
+        if (tmp2.size() > 0) {
+            std::regex pat{"([\\w]+)"};
+
+            for (std::sregex_iterator p(tmp2.begin(), tmp2.end(), pat); p != std::sregex_iterator{}; ++p) {
+                std::string tmp3;
+                tmp3 = (*p)[1];
+                parseinternal(&tmp3, &ires);
+            }
+            idata->readvector(ires);
         }
-        idata->readvector(ires);
         if (!p) {
             resume();
             edata->resume();
@@ -69,12 +74,14 @@ public:
     }
 
     virtual void writedata(std::ostream& os) {
+    /*
         auto sz = size();
         for (int n = 0; n < sz; ++n) {
             os << "{" << idata->getdata(n) << ":" << edata->getdata(n) << "}, ";
-        }
-        os << "\n";
-    }
+        }*/
+        os << "hello \n";
+
+     }
 
     Formatdata(IBPD& iin, EBPD& ein) : Batchprocessed() {
         size_ = iin.size();

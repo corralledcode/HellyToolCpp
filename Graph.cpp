@@ -20,12 +20,12 @@ using strtype = std::string;
 class Vertices : public Batchprocesseddata<vertextype> {
 public:
     vertextype maxvertex = 0;
-    Vertices(std::vector<vertextype>& verticesin) : Batchprocesseddata<vertextype>(verticesin.size()) {
+    Vertices(std::vector<vertextype>& verticesin) : Batchprocesseddata<vertextype>(verticesin) {
         pause();
         maxvertex = verticesin.size();
-        for (int n=0;n<maxvertex;++n){
-            setdata(verticesin[n],n);
-        }
+        //for (int n=0;n<maxvertex;++n){
+        //    setdata(verticesin[n],n);
+        //}
         resume();
     }
     Vertices(int s) : Batchprocesseddata<vertextype>(s) {
@@ -37,13 +37,13 @@ public:
     ~Vertices() {}
     virtual void process() override;
     virtual void setsize(const int s) override {
-        bool b = paused();
+        bool p = paused();
         pause();
         Batchprocesseddata<vertextype>::setsize(s);
         auto sz = size();
         for (int i = 0; i < sz; ++i)
-            setdata(vertextype(i),i);
-        if (!b)
+            setdata( i, i);
+        if (!p)
             resume();
     }
 };
@@ -70,10 +70,10 @@ public:
 
 class Edges : public Batchprocesseddata<Edge> {
 public:
-    vertextype maxvertex;
+    vertextype maxvertex=0;
     vertextype* edgematrix; // adjacency matrix
     vertextype* edgeadjacency; // two dimensional array
-    int maxdegree;  // the size of each edge's adjacency list
+    int maxdegree=0;  // the size of each edge's adjacency list
     Edges(std::vector<Edge> edgesin) : Batchprocesseddata<Edge>(edgesin) {
         maxvertex = computemaxvertex();
         maxdegree = computemaxdegree();
@@ -93,11 +93,12 @@ public:
     };
 
     ~Edges() {
-        delete[] edgematrix;
-        delete[] edgeadjacency;
+        pause();
+        //delete[] edgematrix;
+        //delete[] edgeadjacency;
     }
     virtual void process() override;
-    virtual void sortdata() override;
+    //virtual void sortdata() override;
     bool operator<(const Edges& other) const
     {
         int n = 0;
@@ -126,7 +127,7 @@ public:
             return false;
         auto b = true;
         int n = 0;
-        while (b && n < sz) {
+        while (b && (n < sz)) {
             b = b && (getdata(n) == other.getdata(n)); // rewrite to be immune to unordered situation... or call sortdata
             ++n;
         }
@@ -165,11 +166,15 @@ public:
         //
     }
     void process() override {
+        bool p = paused();
+        pause();
         Batchprocesseddata<Edges>::process();
         int sz = size();
         for (int n = 0;n < sz;++n) {
             getdata(n).process();
         }
+        if (!p)
+            resume();
     };
     bool coversedges( Edges E ) const {
         int sz = E.size();
@@ -218,17 +223,19 @@ inline void Edges::process() {
     delete[] edgematrix;
     delete[] edgeadjacency;
     auto sz = size();
-    int maxvertex = 0;
     for (int n = 0; n < sz; ++n) {
-        maxvertex = getdata(n).first > maxvertex ? getdata(n).first : maxvertex;
-        maxvertex = getdata(n).second > maxvertex ? getdata(n).second : maxvertex;
+        Edge e = getdata(n);
+        maxvertex = ((e.first > maxvertex) ? e.first : maxvertex);
+        maxvertex = ((e.second > maxvertex) ? e.second : maxvertex);
     }
     maxdegree = computemaxdegree();
-    edgeadjacency = new vertextype[size() * maxdegree];
-    edgematrix = new vertextype[size() * size()];
+    //std::cout << "maxvertex: " << maxvertex << " maxdegree: " << maxdegree << "size()" << size() << "\n";
+    edgeadjacency = new vertextype[sz * maxdegree];
+    edgematrix = new vertextype[sz * sz];
     Batchprocesseddata<Edge>::process();
 }
 
+/* now handled by operator overloading of < and > (see code above)
 inline void Edges::sortdata() {
     bool ch = true;
     bool p = paused();
@@ -247,19 +254,24 @@ inline void Edges::sortdata() {
     }
     if (!p)
         resume(); // implicitly calls inherited sortdata
+
 }
+*/
 
 inline int Edges::computemaxdegree() {
     auto szE = size();
     int m = 0;
-    auto szV = maxvertex;
+    auto szV = maxvertex+1;
     auto tally = new int[szV];
+    for (int n = 0; n < szV; ++n) {
+        tally[n] = 0;
+    }
     for (int n = 0; n < szE; ++n) {
-        tally[getdata(n).first]++;
-        tally[getdata(n).second]++;
+        ++tally[getdata(n).first];
+        ++tally[getdata(n).second];
     }
     for (int i = 0; i < szV; ++i)
-        m = tally[i] > m ? tally[i] : m;
+        m = (tally[i] > m) ? tally[i] : m;
     delete[] tally;
     maxdegree = m;
     return maxdegree;

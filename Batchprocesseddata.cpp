@@ -34,8 +34,8 @@ public:
 
     Batchprocessed() {}
 private:
-    bool paused_ {false};
-    bool changed_ {false};
+    bool paused_ {true};
+    bool changed_ {true};
 
 };
 
@@ -43,16 +43,16 @@ template<typename T>
 class Batchprocesseddata : public Batchprocessed {
 public:
     void readvector(const std::vector<T> datain) {
-        auto b = paused();
+        auto p = paused();
         pause();
         if (data)
             delete[] data;
         size_ = datain.size();
-        data = new T[size_];
-        for (int n=0;n<size_;++n){
-            setdata(datain[n],n);
+        data = new T[size_]{};
+        for (int n = 0; n < size_; ++n) {
+            setdata(datain[n], n);
         }
-        if (!b)
+        if (!p)
             resume();
     }
     Batchprocesseddata(const int s);
@@ -73,9 +73,13 @@ public:
     T operator[](int i) const {return getdata(i);}
 
     virtual void process() override {
-        removeduplicates();
+        bool p = paused();
+        pause();
         sortdata();
+        removeduplicates();     // buggy because of initializing with all elements zero; it would delete everything if so
         Batchprocessed::process();
+        if (!p)
+            resume();
     }
 
     virtual void sortdata();
@@ -93,6 +97,9 @@ inline Batchprocesseddata<T>::Batchprocesseddata(const int s) : Batchprocessed()
     if (s < 0)
         throw std::out_of_range("Index less than zero");
     data = new T[s];
+    //for (int n = 0; n < s; ++n) {
+    //    setdata(*(new T),n);
+    //}
     size_ = s;
 }
 
@@ -106,7 +113,7 @@ inline Batchprocesseddata<T>::Batchprocesseddata() : Batchprocessed()
 template<typename T>
 inline Batchprocesseddata<T>::~Batchprocesseddata()
 {
-    delete[] data;
+    //delete[] data;
 }
 
 
@@ -165,21 +172,24 @@ inline void Batchprocesseddata<T>::removeduplicates() {
     const bool p = paused();
     int newsize = size_;
     pause();
-    bool ch = true;
-    while (ch) {
-        ch = false;
-        for (int m = 0; m < newsize; ++m) {
-            for (int n = m + 1; n < newsize; ++n) {
-                if (getdata(n) == getdata(m)) {
-                    for (int k = n; k < newsize - 1; ++k) {
-                        setdata(getdata(k + 1), k);
-                    }
-                    --newsize;
-                    ch = true;
-                }
-            }
+    int m = 0;
+    while (m < newsize) {
+        T d = getdata(m);
+        bool found = false;
+        int n = m+1;
+        while (!found && n < newsize) {
+            found = (getdata(n)==d);
+            if (found) {
+                for (int k = n; k < newsize-1; ++k)
+                    setdata(getdata(k + 1), k);
+                --newsize;
+            } else
+                ++n;
         }
+        if (!found)
+            ++m;
     }
+    size_ = newsize;
     if (!p)
         resume();
 }
