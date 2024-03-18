@@ -9,5 +9,7 @@ add_executable(HellyToolCpp main.cpp
         Formatdata.cpp
         Formatgraph.cpp
         EdgesforHelly.cpp
+        Theory.cpp
+        Hellytheory.cpp
 )
 

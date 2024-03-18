@@ -52,7 +52,7 @@ public:
             s++;
         }
         edata->readvector(eres);
-        edata->removeduplicates();
+        //edata->removeduplicates();
         size_ = edata->size(); // may be larger than s due to condensed parsing
         idata->setsize(size_);
         std::vector<I> ires {};
@@ -65,6 +65,7 @@ public:
                 parseinternal(&tmp3, &ires);
             }
             idata->readvector(ires);
+            // idata->removeduplicates(); must not remove duplicates yet... wait until setvertices has been called
         }
         if (!p) {
             resume();
@@ -111,11 +112,11 @@ public:
         //Batchprocessed::~Batchprocessed();
     }
     void process() override {
+        Batchprocessed::process();
         if (idata && edata) {
             idata->process();
             edata->process();
         }
-        Batchprocessed::process();
     };
 
 };

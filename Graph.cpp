@@ -220,8 +220,8 @@ inline void Vertices::process() {
 }
 
 inline void Edges::process() {
-    delete[] edgematrix;
-    delete[] edgeadjacency;
+    //delete[] edgematrix; // getting "double free" message when not commented out
+    //delete[] edgeadjacency;
     auto sz = size();
     for (int n = 0; n < sz; ++n) {
         Edge e = getdata(n);

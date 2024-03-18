@@ -10,7 +10,6 @@
 #include <ostream>
 #include <vector>
 #include <regex>
-#include <c++/11/regex>
 #include "Graph.cpp"
 #include "Formatdata.cpp"
 
@@ -125,10 +124,15 @@ public:
         for (int n = 0; n < sz; ++n) {
             Edge e;
             Edgestr es = edata->getdata(n);
+            //std::cout << "n: " << n << ","<< es.first << " "<<es.second<<"\n";
             e.first = FV->lookup(es.first);
             e.second = FV->lookup(es.second);
+            //std::cout << "e: " << e.first << " " << e.second << "\n";
             idata->setdata(e,n);
+            //std::cout << "idata "<< idata->getdata(n).first << " " << idata->getdata(n).second << "\n";
         }
+        if (!b)
+            resume();
     }
 
 
@@ -167,7 +171,7 @@ protected:
             v.push_back((*p)[1]);
         std::sort(v.begin(), v.end());
         for (int m = 0; m < v.size(); ++m) {
-            for (int n = m+1; n < v.size(); ++n) {
+            for (int n = m + 1; n < v.size(); ++n) {
                 es.first = v[m];
                 es.second = v[n];
                 //std::cout << ":: v[m]: " << v[m] << " v[n]: " << v[n] << "\n";

@@ -3,7 +3,7 @@
 #include <regex>
 #include "Graph.cpp"
 #include "Formatgraph.cpp"
-
+#include "Hellytheory.cpp"
 
 int main(int argc, char *argv[]) {
     std::cout << "Hello, World!" << std::endl;
@@ -79,12 +79,11 @@ int main(int argc, char *argv[]) {
         std::cout << n << "{" << FV->idata->getdata(n) << ":" << FV->edata->getdata(n) << "}, ";
     std::cout << "\n";
 
-    auto E = new Edges();
+    auto E = new EdgesforHelly();
     auto EE = new Batchprocesseddata<Edgestr>();
     auto FE = new Formatedges(E,EE);
     FE->pause();
     FE->readdata(*s);
-
     FE->setvertices(FV);
     FE->resume();
     int sE = FE->size();
@@ -114,7 +113,15 @@ int main(int argc, char *argv[]) {
     }
     std::cout << "\n";
 
-
+    auto T = new Hellytheory();
+    V->pause();
+    E->pause();
+    C->pause();
+    T->V = V;
+    T->E = E;
+    T->C = C;
+    bool rscover = T->checkrs();
+    std::cout << "checkrs returns " << rscover << "\n";
 
     return 0;
 }
