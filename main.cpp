@@ -1,9 +1,16 @@
+#define VERBOSE   // compile with verbose output enabled
+//define CHECKS    // compile with (slow) checks in checkrs routine and elsewhere
+
+
 #include <iostream>
 #include <fstream>
 #include <regex>
+#include <chrono>
 #include "Graph.cpp"
 #include "Formatgraph.cpp"
 #include "Hellytheory.cpp"
+
+
 
 int main(int argc, char *argv[]) {
     std::cout << "Hello, World!" << std::endl;
@@ -77,9 +84,9 @@ int main(int argc, char *argv[]) {
     int sV = FV->size();
     for( int n = 0; n<sV; ++n)
         std::cout << n << "{" << FV->idata->getdata(n) << ":" << FV->edata->getdata(n) << "}, ";
-    std::cout << "\n";
+    std::cout << "\b\b  \n";
 
-    auto E = new EdgesforHelly();
+    auto E = new EdgesforHellyfast();
     auto EE = new Batchprocesseddata<Edgestr>();
     auto FE = new Formatedges(E,EE);
     FE->pause();
@@ -92,7 +99,7 @@ int main(int argc, char *argv[]) {
         std::cout << "{" << FE->idata->getdata(m).first << ", " << FE->idata->getdata(m).second;
         std::cout << ":" << FE->edata->getdata(m).first << ", " << FE->edata->getdata(m).second << "}, ";
     }
-    std::cout << "\n";
+    std::cout << "\b\b  \n";
     //std::cout << "computemaxdegree: " << E->computemaxdegree() << "\n";
 
     auto C = new Cover();
@@ -109,7 +116,7 @@ int main(int argc, char *argv[]) {
         for (int n = 0; n < sc; ++n) {
             std::cout << FC->idata->getdata(m)[n] << ": " << FC->edata->getdata(m)[n] << ", ";
         }
-        std::cout << "\n";
+        std::cout << "\b\b  \n";
     }
     std::cout << "\n";
 
@@ -117,11 +124,23 @@ int main(int argc, char *argv[]) {
     V->pause();
     E->pause();
     C->pause();
+    FV->pause();
+    FE->pause();
+    FC->pause();
     T->V = V;
     T->E = E;
     T->C = C;
+    T->FV = FV;
+    T->FE = FE;
+    T->FC = FC;
+
+    auto starttime = std::chrono::high_resolution_clock::now();
     bool rscover = T->checkrs();
     std::cout << "checkrs returns " << rscover << "\n";
+    auto stoptime = std::chrono::high_resolution_clock::now();
+    auto duration = duration_cast<std::chrono::microseconds>(stoptime - starttime);
+    std::cout << "Time elapsed: " << float(duration.count())/1000000 << "\n";
+
 
     return 0;
 }
