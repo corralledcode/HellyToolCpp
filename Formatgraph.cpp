@@ -224,6 +224,16 @@ public:
             resume();
     }
 
+
+    void simplifycover() {
+        bool p = paused();
+        pause();
+        idata->simplifycover();
+        Formatdata<Edges,std::vector<Edgestr>,Cover,Batchprocesseddata<std::vector<Edgestr>>>::matchiedata();
+        if (!p)
+            resume();
+    }
+
 protected:
     void parseexternal(std::string* str, std::vector<std::vector<Edgestr>>* edges ) override {
         if (str->size()==0)

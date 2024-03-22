@@ -1,5 +1,5 @@
-#define VERBOSE   // compile with verbose output enabled
-//define CHECKS    // compile with (slow) checks in checkrs routine and elsewhere
+//define VERBOSE   // compile with verbose output enabled
+#define CHECKS    // compile with (slow) checks in checkrs routine and elsewhere
 
 
 #include <iostream>
@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
         std::cout << n << "{" << FV->idata->getdata(n) << ":" << FV->edata->getdata(n) << "}, ";
     std::cout << "\b\b  \n";
 
-    auto E = new EdgesforHellyfast();
+    auto E = new EdgesforHelly();
     auto EE = new Batchprocesseddata<Edgestr>();
     auto FE = new Formatedges(E,EE);
     FE->pause();
@@ -108,6 +108,7 @@ int main(int argc, char *argv[]) {
     FC->pause();
     FC->readdata(*s);
     FC->setvertices(FV);
+    FC->simplifycover();
     FC->resume();
     int sC = FC->size();
     for (int m = 0; m < sC; ++m) {
@@ -141,6 +142,18 @@ int main(int argc, char *argv[]) {
     auto duration = duration_cast<std::chrono::microseconds>(stoptime - starttime);
     std::cout << "Time elapsed: " << float(duration.count())/1000000 << "\n";
 
+    Cover hintCover;
+    std::vector<Edges> es {};
+    for (int i = 0; i < C->size(); ++i) {
+        es.push_back(C->getdata(i));
+    }
+    hintCover.readvector(es);
+    starttime = std::chrono::high_resolution_clock::now();
+
+    T->findrscovers(hintCover);
+    stoptime = std::chrono::high_resolution_clock::now();
+    duration = duration_cast<std::chrono::microseconds>(stoptime - starttime);
+    std::cout << "Time elapsed: " << float(duration.count())/1000000 << "\n";
 
     return 0;
 }

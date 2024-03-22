@@ -134,6 +134,7 @@ public:
         return b;
     }
 
+
 private:
     void computeadjacencymatrix();
     void computeedgematrix();
@@ -199,6 +200,8 @@ public:
         }
         return covered;
     }
+    void simplifycover();
+
 };
 
 class Graph : public Batchprocessed {
@@ -281,6 +284,54 @@ inline int Edges::computemaxdegree() {
 
 inline void Edges::computeadjacencymatrix() {
     //
+}
+
+inline void Edges::computeedgematrix() {
+    //
+}
+
+inline void Cover::simplifycover() { // this should be made instead into a Hellytheory method
+    int sz = size();
+    std::vector<Edges> Es {};
+    Es.clear();
+    //sortdata();
+    for (int n = 0; n < sz; ++n) {
+        Edges es = getdata(n);
+        int essz = es.size();
+        // is every edge e in es covered by some one es2?
+        bool allallcovered = false;
+        for (int k = 0; k < sz && !allallcovered; ++k) {
+            if (k != n) {
+                Edges es2 = getdata(k);
+                // does es2 contain every edge e in es?
+                int es2sz = es2.size();
+                bool allcovered = true;
+                for (int m = 0; m < essz && allcovered; ++m) {
+                    Edge e = es.getdata(m);
+                    bool covered = false;
+                    for (int j = 0; j < es2sz && !covered; ++j) {
+                        Edge e2 = es2.getdata(j);
+                        covered = covered || (e == e2);
+                    }
+                    allcovered = allcovered && covered;
+                }
+                allallcovered = allallcovered || allcovered;
+            }
+        }
+        if (!allallcovered) {
+            Es.push_back(es);
+        }
+#ifdef VERBOSE
+        else {
+            std::cout << "Removing covered edges ";
+            for (int m = 0; m < es.size(); ++m)
+                std::cout << "[" << es.getdata(m).first << ", " << es.getdata(m).second << "], ";
+            std::cout << "\b\b  \n";
+        }
+#endif
+
+    }
+    readvector(Es);
 }
 
 #endif //GRAPH_H

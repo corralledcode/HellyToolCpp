@@ -117,8 +117,28 @@ public:
             idata->process();
             edata->process();
         }
+        //size_ = (idata->size() < edata->size()) ? idata->size() : edata->size();
     };
 
+    virtual void matchiedata() {
+        bool p = paused();
+        pause();
+        std::vector<E> estr {};
+        int offset = 0;
+        bool match=true;
+        if (idata->size() != edata->size())
+            for (int m = 0; m < idata->size() && m+offset < edata->size() && match;++m) {
+                E e = edata->getdata(m + offset);
+                I i = idata->getdata(m);
+                match = match && lookup(e) == i;
+                if (match)
+                    estr.push_back(e);
+                else {
+                    ++offset;
+                }
+            }
+        edata->readvector(estr);
+    }
 };
 
 template<typename I, typename E, typename IBPD, typename EBPD>
@@ -160,7 +180,8 @@ E Formatdata<I,E,IBPD,EBPD>::lookup(I vi) {
     if (found)
         return edata->getdata(n);
     else
-        throw std::out_of_range("E lookup: Unknown data element");
+        //throw std::out_of_range("E lookup: Unknown data element");
+        return "UNKNWN";
 }
 
 #endif //HELLYTOOLCPP_FORMATDATA_CPP
