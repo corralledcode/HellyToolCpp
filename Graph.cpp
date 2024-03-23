@@ -125,13 +125,62 @@ public:
         int sz = size();
         if (sz != other.size())
             return false;
-        auto b = true;
         int n = 0;
-        while (b && (n < sz)) {
-            b = b && (getdata(n) == other.getdata(n)); // rewrite to be immune to unordered situation... or call sortdata
+        bool allfound = true;
+        while ((n < sz) && allfound) {
+            bool found = false;
+            for (int m = 0; (m < sz) && !found; ++m) {
+                found = (found || (getdata(n) == other.getdata(m))); // or call sortdata
+            }
+            allfound = allfound && found;
             ++n;
         }
-        return b;
+        return allfound;
+    }
+
+    std::vector<vertextype> vertexneighbors(vertextype v) {
+        const int sz = size();
+        std::vector<vertextype> adjacent {};
+        for (int n = 0; n < sz; ++n) {
+            Edge e = getdata(n);
+            if (e.first != e.second) {
+                if (e.first == v)
+                    adjacent.push_back(e.second);
+                if (e.second == v)
+                    adjacent.push_back(e.first);
+            }
+        }
+        return adjacent;
+    }
+
+    std::vector<Edge> vertexneighborsasedges(vertextype v) {
+        const int sz = size();
+        std::vector<Edge> adjacentedges {};
+        for (int n = 0; n < sz; ++n) {
+            Edge e = getdata(n);
+            if (e.first != e.second) {
+                if (e.first == v)
+                    adjacentedges.push_back(e);
+                if (e.second == v)
+                    adjacentedges.push_back(e);
+            }
+        }
+        return adjacentedges;
+    }
+
+    int vertexdegree(vertextype v) {
+        const int sz = size();
+        std::vector<vertextype> adjacent {};
+        for (int n = 0; n < sz; ++n) {
+            Edge e = getdata(n);
+            if (e.first != e.second) {
+                if (e.first == v)
+                    adjacent.push_back(e.second);
+                if (e.second == v)
+                    adjacent.push_back(e.first);
+            }
+        }
+        return adjacent.size();
     }
 
 

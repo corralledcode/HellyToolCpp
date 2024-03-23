@@ -108,7 +108,7 @@ int main(int argc, char *argv[]) {
     FC->pause();
     FC->readdata(*s);
     FC->setvertices(FV);
-    FC->simplifycover();
+    //FC->simplifycover();
     FC->resume();
     int sC = FC->size();
     for (int m = 0; m < sC; ++m) {

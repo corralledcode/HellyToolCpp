@@ -140,13 +140,15 @@ public:
     Formatvertices* FV;
     Formatedges* FE;
     Formatcover* FC;
+    int maxcliquesize = 0;
 
     bool checkcover();
     bool checkcoverlegal();
     bool checkrs();
     void findrscovers(Cover hintCover);
     std::vector<Cover> recursefindcovers( std::vector<Edges>* completeedgesets, Cover* hintCover, int progress);
-    void enumeratecompletesets(std::vector<Edges>* Evar, Cover hintCover);
+    std::vector<Edges> enumeratevertexsubsets(  std::vector<Edge>* EE, Cover hintCover );
+    void enumeratecompletesets(std::vector<Edges>* Evar, Cover hintCover, int n);
     void findncovers(std::vector<Cover>* Cvar, Cover hintCover, int n);
     void findncoversbare(std::vector<Cover>* Cvar, Cover hintCover, std::vector<Edges>* completeEdgesets, int n);
 
@@ -220,246 +222,424 @@ inline bool Hellytheory::checkrs() {
 #endif
     int tsz = E->triangles.size();
     bool rscover = true;
-    for (int n = 0; (n<tsz && rscover);++n) {
-       std::vector<Edges> Emeet {};
-       const auto [tfirst,tsecond,tthird] = E->triangles[n];
+    for (int n = 0; (n < tsz && rscover); ++n) {
+        std::vector<Edges> Emeet{};
+        const auto [tfirst, tsecond, tthird] = E->triangles[n];
 #ifdef VERBOSE
-       std::cout << "Triangle: <"<< FV->lookup(tfirst) << ", "<< FV->lookup(tsecond)
-                << ", " << FV->lookup(tthird) << ">\n";
+        std::cout << "Triangle: <"<< FV->lookup(tfirst) << ", "<< FV->lookup(tsecond)
+                 << ", " << FV->lookup(tthird) << ">\n";
 #endif
-       int csz = C->size();
-       for (int i = 0; i < csz; ++i) {
-           Edges es = C->getdata(i);
-           bool twoofthree = false;
-           int esz = es.size();
-           int j = 0;
-           while (j < esz && !twoofthree) {
-               Edge e = es.getdata(j);
-               int cnt = 0;
-               if (e.first == tfirst || e.second == tfirst)
-                   ++cnt;
-               if (e.first == tsecond || e.second == tsecond)
-                   ++cnt;
-               if (e.first == tthird || e.second == tthird)
-                   ++cnt;
-               twoofthree = (cnt >= 2);
-               if (twoofthree) {
+        int csz = C->size();
+        for (int i = 0; i < csz; ++i) {
+            Edges es = C->getdata(i);
+            bool twoofthree = false;
+            int esz = es.size();
+            int j = 0;
+            while (j < esz && !twoofthree) {
+                Edge e = es.getdata(j);
+                int cnt = 0;
+                if (e.first == tfirst || e.second == tfirst)
+                    ++cnt;
+                if (e.first == tsecond || e.second == tsecond)
+                    ++cnt;
+                if (e.first == tthird || e.second == tthird)
+                    ++cnt;
+                twoofthree = (cnt >= 2);
+                if (twoofthree) {
 #ifdef VERBOSE
-                   std::cout << "   meets Cover: ";
-                   for (int l = 0; l < esz; ++l) {
-                       Edge e2 = es.getdata(l);
-                       std::cout << FV->lookup(e2.first) << " " << FV->lookup(e2.second) << ", ";
-                   }
-                   std::cout << "\b\b  \n";
+                    std::cout << "   meets Cover: ";
+                    for (int l = 0; l < esz; ++l) {
+                        Edge e2 = es.getdata(l);
+                        std::cout << FV->lookup(e2.first) << " " << FV->lookup(e2.second) << ", ";
+                    }
+                    std::cout << "\b\b  \n";
 #endif
-                   Emeet.push_back(es);
-               }
-               ++j;
-           }
-       }
-       bool sharedvertex = false;
-       int vsz = V->size();
-       int k = 0;
-       int Emeets = Emeet.size();
-       while (k < vsz && !sharedvertex) {
-           vertextype v = V->getdata(k);
+                    Emeet.push_back(es);
+                }
+                ++j;
+            }
+        }
+        bool sharedvertex = false;
+        int vsz = V->size();
+        int k = 0;
+        int Emeets = Emeet.size();
+        while (k < vsz && !sharedvertex) {
+            vertextype v = V->getdata(k);
 #ifdef VERBOSE
-//           std::cout << "vertex " << FV->lookup(v) << "\n";
+            //           std::cout << "vertex " << FV->lookup(v) << "\n";
 #endif
-           int l = 0;
-           bool shared = true;
-           while (shared && (l < Emeets)) { // check every cover sharing two of three vertices
-               Edges es = Emeet[l];
-               int m = 0;
-               shared = false;
-               int esz = es.size();
-               while (!shared && (m < esz)) { // for each such cover see if it contains v
-                   Edge e = es.getdata(m);
-                   shared = shared || ((e.first == v) || (e.second == v));
-                   ++m;
-               }
-               ++l;
-           }
-           sharedvertex = sharedvertex || shared;
-           ++k;
-       }
-       rscover = rscover && sharedvertex;
+            int l = 0;
+            bool shared = true;
+            while (shared && (l < Emeets)) { // check every cover sharing two of three vertices
+                Edges es = Emeet[l];
+                int m = 0;
+                shared = false;
+                int esz = es.size();
+                while (!shared && (m < esz)) { // for each such cover see if it contains v
+                    Edge e = es.getdata(m);
+                    shared = shared || ((e.first == v) || (e.second == v));
+                    ++m;
+                }
+                ++l;
+            }
+            sharedvertex = sharedvertex || shared;
+            ++k;
+        }
+        rscover = rscover && sharedvertex;
 #ifdef VERBOSE
-       if (rscover)
-           std::cout << "   All meet.\n";
-       else
-           std::cout << "   Fail to meet at this triangle\n";
+        if (rscover)
+            std::cout << "   All meet.\n";
+        else
+            std::cout << "   Fail to meet at this triangle\n";
 #endif
     }
     return rscover;
+
 }
 
-inline void Hellytheory::enumeratecompletesets(std::vector<Edges>* Evar, Cover hintCover) {
-    int Vsz = V->size();
-    int Esz = E->size();
-    int s = 0;
-    int n = V->size();
-    int bin = 0;
-    if (n > 0)
-        bin = 1;
-    bin = bin << n;
-    //if ((*Evar).size() < bin) {
-    //    std::cout << "Evar passed is not large enough.\n";
-    //    return;
-    //}
-    std::vector<Edges> Es{};
-    Es.clear();
-    //std::vector<vertextype> vertexpool {};
-    //for (int i = 0; i < hintCover.size(); ++i) {
-    //    Es.push_back(hintCover.getdata(i));
-     /*
-        for (int j = 0; j < hintCover.getdata(i).size(); ++j) {
-            vertexpool.push_back(hintCover.getdata(i).getdata(j).first);
-            vertexpool.push_back(hintCover.getdata(i).getdata(j).second);
-        }*/
-    //}
+inline bool adjacent( Edge e1, Edge e2 ) {
+    return ((e1.first == e2.first) || (e1.first == e2.second) || (e1.second == e2.second));
+}
 
-    for (int c = 0; c <= bin; ++c) {
-        //Cover Cvr = (*Cvar)[c];
-        std::vector<Edge> es{};
-        es.clear();
-        std::vector<vertextype> vertices{};
-        vertices.clear();
-        for (int i = 0; i < n; ++i) {
-            if ((c & (1 << i)) > 0)
-                vertices.push_back(V->getdata(i));
-        }
-        bool allfound = true;
-        for (int j = 0; (j < vertices.size()) && allfound; ++j) {
-            for (int l = j+1; (l < vertices.size()) && allfound; ++l) {
+inline bool completeedgeset( std::vector<Edge>* EE) {
+    const int EEsz = (*EE).size();
+    std::vector<vertextype> v{};
+    v.resize(2 * EEsz);
+    int vcnt = 0;
+    for (; vcnt < EEsz; ++vcnt) {
+        v[2 * vcnt] = (*EE)[vcnt].first;
+        v[2 * vcnt + 1] = (*EE)[vcnt].second;
+    }
+    bool allfound = true;
+    for (int m = 0; (m < (2*EEsz)) && allfound; ++m)
+        for (int n = m + 1; (n < (2*EEsz)) && allfound; ++n) {
+            if (v[m] != v[n]) {
                 bool found = false;
-                for (int k = 0; (k < Esz) && !found; ++k) {
-                    Edge e = E->getdata(k);
-                    if ((e.first == vertices[j]) && (e.second == vertices[l])
-                        || ((e.second == vertices[j]) && (e.first == vertices[l]))) {
-                        es.push_back(e);
-                        found = true;
-                    }
+                for (int k = 0; (k < EEsz) && !found; ++k) {
+                    Edge e = (*EE)[k];
+                    Edge e2{};
+                    e2.first = v[m];
+                    e2.second = v[n];
+                    found = (found || ((e.first == e2.first)&&(e.second == e2.second))
+                                   || ((e.first == e2.second)&&(e.second == e2.first)));
+                }
+                allfound = (allfound && found);
+            }
+        }
+    return allfound;
+}
+
+/*inline std::vector<Edge> completeedgesetinfo( std::vector<Edge>* EE)
+{
+    const int EEsz = (*EE).size();
+    std::vector<vertextype> v{};
+    v.resize(2 * EEsz);
+    int vcnt = 0;
+    for (; vcnt < EEsz; ++vcnt) {
+        v[2 * vcnt] = (*EE)[vcnt].first;
+        v[2 * vcnt + 1] = (*EE)[vcnt].second;
+    }
+    bool allfound = true;
+    for (int m = 0; (m < (2*EEsz)) && allfound; ++m)
+        for (int n = m + 1; (n < (2*EEsz)) && allfound; ++n) {
+            if (v[m] != v[n]) {
+                bool found = false;
+                for (int k = 0; (k < EEsz) && !found; ++k) {
+                    Edge e = (*EE)[k];
+                    Edge e2{};
+                    e2.first = v[m];
+                    e2.second = v[n];
+                    found = (found || ((e.first == e2.first)&&(e.second == e2.second))
+                             || ((e.first == e2.second)&&(e.second == e2.first)));
+                }
+                allfound = (allfound && found);
+            }
+        }
+    return allfound;
+}*/
+
+
+
+inline std::vector<Edges> Hellytheory::enumeratevertexsubsets(  std::vector<Edge>* EE, Cover hintCover) {
+    Edges es{};
+    int EEsz = EE->size();
+    int Esz = E->size();
+    int Vsz = V->size();
+    std::vector<Edges> EsReturn{};
+    if (EEsz <= 0) {
+        EsReturn.push_back(es);
+        return EsReturn;
+    }
+
+    // for each edge <n,k> in EE
+    //    remove <n,k> from EE and call recursively
+    //    let j be the number of edges e in E that meet <n,k>
+    //    for all powersets of j (use int up to say twenty decimal digits)
+    //       if p is complete
+    //          EsReturn = TmpEs with each Es in TmpEs branched by count of p
+    //
+    //
+
+
+    Edge e = (*EE)[0];
+    //std::cout << "Edge e = " << e << "\n";
+    // for every vertex v that forms a triangle with e
+    //    add the edges v,e.first and v,e.second
+
+
+    std::vector<Edge> Etmp{};
+    Etmp.resize(Esz);
+    Etmp[0] = e;
+    int cnt = 1;
+    int vcnt = 0;
+    std::vector<vertextype> v{};
+    v.resize(Vsz - 2);
+    for (int n = 0; n < Vsz; ++n) {  // prime opportunity to use adjacency matrix
+        vertextype newv = V->getdata(n);
+        if ((newv != e.first) && (newv != e.second)) {
+            Edge e1{};
+            e1.first = ((newv < e.first) ? newv : e.first);
+            e1.second = ((newv > e.first) ? newv : e.first);
+            Edge e2{};
+            e2.first = ((newv < e.second) ? newv : e.second);
+            e2.second = ((newv > e.second) ? newv : e.second);
+            bool found1 = false;
+            bool found2 = false;
+            for (int m = 0; (m < Esz) && !(found1 && found2); ++m) {
+                vertextype newv1 = E->getdata(m).first;
+                vertextype newv2 = E->getdata(m).second;
+                found1 = (found1 || (E->getdata(m) == e1));
+                found2 = (found2 || (E->getdata(m) == e2));
+            }
+            if (found1 && found2) {
+                //std::cout << "newv passes " << newv << "\n";
+                Etmp[cnt] = e1;
+                Etmp[cnt + 1] = e2;
+                cnt += 2;
+                v[vcnt] = newv;
+                vcnt++;
+            }
+        }
+    }
+
+
+    //std::vector<Edge> Etmp2 {};
+    Etmp.resize(cnt + vcnt); //sloppy
+    //Etmp2.resize(cnt+1);
+    //std::cout << "Etmp2.resize first round = " << cnt+1 << "\n";
+    int cnt2 = cnt;
+    for (int k = 0; (k < vcnt); ++k)
+        for (int l = k + 1; (l < vcnt); ++l) {
+            bool found = false;
+            for (int m = 0; (m < Esz) && !found; ++m) {
+                Edge etemp;
+                etemp.first = v[k];
+                etemp.second = v[l];
+                if ((*E)[m] == etemp) {
+                    Etmp[cnt2] = etemp;
+                    ++cnt2;
+                    found = true;
+                }
+            }
+        }
+    Etmp.resize(cnt2);
+
+    //std::cout << "Etmp2.resize = " << cnt2 << "\n";
+    std::vector<Edge> Etemp;
+    int cnt3 = 0;
+    Etemp.resize(EEsz);
+    for (int s = 0; s < EEsz; ++s) {
+        bool found = false;
+        for (int m = 0; (m < cnt2) && !found; ++m) {
+            found = (found || (Etmp[m] == (*EE)[s]));
+        }
+        if (!found) {
+            Etemp[cnt3] = (*EE)[s];
+            ++cnt3;
+        } else {
+            //std::cout << "removing edge " << (*EE)[s] << "\n"; // to aid in the recursive step, remove vertices here considered
+        }
+    }
+    Etemp.resize(cnt3);
+
+    int bin = ((1 << cnt2) - 1);
+    //std::cout << "using bin = " << bin << "\n";
+    std::vector<std::vector<Edge>> Ps{};
+    Ps.clear();
+    Ps.resize(bin + 1);
+    int i = 0; // index for Ps
+    for (int c = 0; c <= bin; ++c) {
+        std::vector<Edge> P{};
+        P.clear();
+        P.resize(cnt2);
+        int j = 0;
+        for (int k = 0; k < cnt2; ++k) {
+            if ((c & (1 << k)) > 0) {
+                P[j] = Etmp[k];
+                ++j;
+            }
+        }
+        P.resize(j);
+
+
+
+        //check that P is complete
+
+
+        //std::cout << "Checking P for completeness: " << P.size() << "\n";
+
+        if (completeedgeset(&P)) {
+            Ps[i] = P;
+            ++i;
+        }
+    }
+
+
+    Ps.resize(i);
+
+    // for each edgeset EPs in Ps
+    //    for each edgeset Es in hintcover
+    //        if EPs is contained in Es
+    //           remove EPs from Ps
+
+    std::vector<std::vector<Edge>> PsTemp {};
+    int idx = 0; // index for PsTemp
+    PsTemp.resize(i);
+    int hCsz = hintCover.size();
+    //std::cout << "HintCover size " << hCsz << "\n";
+    for (int t = 0; t < i; ++t) {                // for each edgeset EPs in Ps
+        std::vector<Edge> EPs = Ps[t];
+
+        bool allallfound = false;
+        for (int s = 0; !allallfound && (s < hCsz); ++s) { // for each edgeset Es in hintCover
+            Edges Es = hintCover.getdata(s);
+            bool allfound = true;                            // is every edge in EPs found in Es?
+            for (int u = 0; allfound && (u < EPs.size()); ++u) {
+                // is this edge in Es?
+                bool found = false;
+                for (int v = 0; !found && (v < Es.size()); ++v) {
+                    found = found || (EPs[u] == Es[v]);
                 }
                 allfound = allfound && found;
             }
+            allallfound = allallfound || allfound;
         }
-
-        if (allfound) {
-//            for (int l = 0; l < es.size(); ++l) {
-//                std::cout << es[l].first << " " << es[l].second << ", ";
-//            }
-//            std::cout << "\n";
-            bool allall = true;
-            int esz = es.size();
-            for (int i = 0; i < esz && allall; ++i) {
-                int hCsz = hintCover.size();
-                bool all = false;
-                for (int k = 0; k < hCsz && !all; ++k) {
-                    bool found = false;
-                    Edges he = hintCover.getdata(k);
-                    int hesz = he.size();
-                    for (int j = 0; j < hesz && !found; ++j) {
-                        found = found || (es[i] == he.getdata(j));
-                    }
-                    all = all || found;
-                }
-                allall = allall && all;
-            }
-            if (!allall)
-                Es.push_back(es);
-            else { /*
-                for (int j = 0; j < es.size(); ++j)
-                    std::cout << es[j].first << " " << es[j].second << ",";
-                std::cout << "\n"; */
-            }
-        }
-        else { /*
-            for (int j = 0; j < es.size(); ++j)
-                std::cout << es[j].first << " " << es[j].second << ",";
-            std::cout << "not allfound \n"; */
+        if (!allallfound || (EPs.size() == 0)) {
+            PsTemp[idx] = EPs;
+            ++idx;
+            //std::cout << " not allfound ";
+            //for (int a = 0; a < EPs.size(); ++a)
+            //    std::cout << FV->lookup(EPs[a].first) << FV->lookup(EPs[a].second) << "\n";
+        } else {
+            //std::cout << "all found ";
+            //for (int a = 0; a < EPs.size(); ++a )
+            //    std::cout << EPs[a].first << EPs[a].second << "\n";
         }
     }
-    int Essz = Es.size();
-    std::cout << Essz << "Essz\n";
-    //std::vector<Edges> CompleteEs{};
-    for (int k = 0; k < Essz; ++k) { // check that the cover is a complete set cover
-        Edges es2 = Es[k];
-        int es2z = es2.size();
-        std::cout << es2z << "es2z\n";
-        for (int l = 0; l < es2z; ++l) {
-            std::cout << es2.getdata(l) << "\n";
-        }
-        if (es2z > 2) {
-            Evar->push_back(es2);
 
-            /*
-            std::vector<vertextype> v{};
-            v.clear();
-            for (int l = 0; l < es2z; ++l) {
-                Edge e2 = es2.getdata(l);
+    PsTemp.resize(idx);
+    for (int u = 0; u < idx; ++u) {
+        Ps[u] = PsTemp[u];  // lazy about normalizing variable names
+        //for (int v = 0; v < Ps[u].size(); ++v)
+        //    std::cout << Ps[u][v].first << Ps[u][v].second << " PS \n";
+        //std::cout << "\n";
+    }
+    //std::cout << "\n";
+    Ps.resize(idx);
 
-                bool foundfirst = false;
-                bool foundsecond = false;
-                for (int j = 0; j < v.size(); ++j) {
-                    foundfirst = foundfirst || v[j] == e2.first;
-                    foundsecond = foundsecond || v[j] == e2.second;
-                }
-                if (!foundfirst)
-                    v.push_back(e2.first);
-                if (!foundsecond)
-                    v.push_back(e2.second);
-                //std::cout << "adding vertex " << FV->lookup (e2.first) << " " << FV->lookup(e2.second)<<"\n";
+    std::vector<Edges> TmpEs{};
+    TmpEs = enumeratevertexsubsets(&Etemp, hintCover);
 
-                v.push_back(e2.first);
-                v.push_back(e2.second);
-            } */
-         /*
-            bool allcomplete = true;
-            int vsz = v.size();
-            for (int m = 0; m < vsz && allcomplete; ++m) { // for every vertex pair...
-                for (n = m + 1; n < vsz && allcomplete; ++n) {
-                    if (v[m] != v[n]) { //redundant
-                        bool complete = false;
-                        for (int l = 0; l < es2z && !complete; ++l) {
-                            Edge e3 = es2.getdata(l);
-                            complete = (complete || (e3.first == v[m] && e3.second == v[n])
-                                       || (e3.second == v[m] && e3.first == v[n]));
-                        }
-                        allcomplete = allcomplete && complete;
-                    }
+    // for each Es in TmpEs
+    //    for each c
+    //       EsReturn.copy out Es followed by c
+
+    int pos = 0;
+    EsReturn.resize(TmpEs.size() * Ps.size());
+    //std::cout << "EsReturn.resize " << TmpEs.size() << " " << Ps.size() << "\n";
+    for (int n = 0; n < TmpEs.size(); ++n) {
+        for (int k = 0; k < Ps.size(); ++k) {
+            // copy out Es followed by c
+            std::vector<Edge> EsTmp{};
+            EsTmp.clear();
+            EsTmp.resize(TmpEs[n].size() + Ps[k].size());
+            int l;
+            for (l = 0; l < TmpEs[n].size(); ++l) {
+                EsTmp[l] = TmpEs[n][l];
+            }
+            int m2 = 0;
+            for (int m = 0; m < Ps[k].size(); ++m) {
+                bool dupe = false;
+                for (int l2 = 0; l2 < TmpEs[n].size(); ++l2)
+                    dupe = dupe || (TmpEs[n][l2] == Ps[k][m]);
+                if (!dupe) {
+                    EsTmp[l + m2] = Ps[k][m];
+                    ++m2;
                 }
             }
-            if (allcomplete) {
-                /*int hsz = hintCover.size();
-                // if any set of edges es in hintCover contains  es2
-                bool contains = false;
-                for (int i = 0; i < hsz && !contains; ++i) {
-                    Edges he = hintCover.getdata(i);
-                    Evar->push_back(he);
-                    int esz = es2.size();
-                    bool allmatch = true;
-                    for (int j = 0; j < esz; ++j) {
-                        bool match = false;
-                        for (int k = 0; k < he.size(); ++k) {
-                            match = match || (es2.getdata(j) == hintCover.getdata(i)[k]);
-                        }
-                        allmatch = allmatch && match;
-                    }
-                    contains = contains || allmatch;
-
-                }
-                if (!contains)
-                    Evar->push_back(es2);
-                //std::cout << "allcomplete at ";
-                //for (int n = 0; n < es2.size(); ++n)
-                //    std::cout << es2.getdata(n) << " ";
-                //std::cout << "\n";
-            } */
+            if (completeedgeset(&EsTmp)) {
+                EsTmp.resize(l + m2);
+                Edges E2{};
+                E2.readvector(EsTmp);
+                //E2.removeduplicates();
+                EsReturn[pos] = E2;
+                ++pos;
+            }
         }
     }
-    std::cout << Evar->size() << "evarsz\n";
-    // data is returned in Evar
+    EsReturn.resize(pos);
+    std::vector<Edges> EsReturn2 {};
+    EsReturn2.resize(EsReturn.size());
+    int pos4 = 0; // index for EsReturn2
+    //std::cout << "EsReturn.size() = " << EsReturn.size() << "\n";
+    for (int r = 0; r< EsReturn.size(); ++r) {
+        bool dupe = false;
+        for (int s = 0; (s< r) && !dupe; ++s){
+            dupe = dupe || (EsReturn[r] == EsReturn[s]);
+        }
+        if (!dupe) {
+            EsReturn2[pos4].setsize(EsReturn[r].size());
+            //std::cout << "EsReturn.size() " << EsReturn[r].size() << "\n";
+            for (int i = 0; i < EsReturn[r].size(); ++i)
+                EsReturn2[pos4].setdata(EsReturn[r].getdata(i),i);
+            ++pos4;
+        }
+    }
+    EsReturn2.resize(pos4);
+    //std::cout << "EsReturn2 size " << EsReturn2.size() << "\n";
+    return EsReturn2;
+
+}
+
+inline void Hellytheory::enumeratecompletesets(std::vector<Edges>* Evar, Cover hintCover, int n) {
+    int Vsz = V->size();
+    int Esz = E->size();
+    int s = 0;
+    std::vector<Edges> Es{};
+    Es.clear();
+
+    // first enumerate all edges not covered by the hint
+    // next consider every n-or-less-sized subset of vertices
+
+    std::vector<Edge> es {};
+    for (int k = 0; k < Esz; ++k) {  // for each edge
+        Edge etmp = E->getdata(k);
+        bool covered = false;
+        for (int m = 0; !covered && (m < hintCover.size()); ++m) {
+            for (int j = 0; (j < hintCover.getdata(m).size()) && !covered; ++j) {
+                covered = (covered || (etmp == hintCover.getdata(m).getdata(j)));
+            }
+        }
+        if (!covered) {
+            es.push_back(E->getdata(k));
+        }
+    }
+
+    Es = enumeratevertexsubsets(&es, hintCover);
+    for (int m=0;m<Es.size();++m)
+        if (Es[m].size() >= 3)
+            Evar->push_back(Es[m]);
+    return;
 }
 
 inline std::vector<std::vector<bool>> recursebool(int n) {
@@ -498,7 +678,11 @@ inline std::vector<Cover> Hellytheory::recursefindcovers(std::vector<Edges>* com
     }
 
     --progress;
+    if (progress > 17)
+        std::cout << "Recursion depth high = " << progress << "\n";
     Cvrs = recursefindcovers(completeedgesets,hintCover,progress);
+    if (progress > 17)
+        std::cout << "Note deep recursion depth ...returns..." << progress << "\n";
     std::vector<Cover> CvrsReturn {};
     CvrsReturn.clear();
     int Csz = Cvrs.size();
@@ -508,203 +692,223 @@ inline std::vector<Cover> Hellytheory::recursefindcovers(std::vector<Edges>* com
     // branch into one invocation with es added and one invocation without es added
 
     for (int m = 0; m < Csz; ++m) {
+
         //std::cout << "m, Csz = " << m << ","<<Csz<<"\n";
         //C = &(Cvrs[m]);
         //FC->simplifycover();
 
         Cover c = Cvrs[m];
+        c.simplifycover();
+        //Cvrs[m].simplifycover();
+
+
         std::vector<Edges> ces {};
         ces.clear();
         int csz = c.size();
+        ces.resize(csz +1);
+        int l2 = 0;
         for (int k = 0; k < csz; ++k) {
-            ces.push_back(c.getdata(k));
+            bool dupe = false;
+            for (int l = 0; l < k; ++l)
+                dupe = (dupe || (ces[l] == c[k]));
+            if (!dupe) {
+                ces[l2] = c.getdata(k);
+                ++l2;
+            }
         }
-        ces.push_back(es);
+        bool dupe = false;
+        for (int l = 0; l < l2; ++l)
+            dupe = (dupe || (ces[l] == es));
+        bool special = false;
+        if (!dupe) {
+            ces[l2] = es;
+            ++l2;
+            special = true;
+        }
+        ces.resize(l2);
 
         Cover c2 {};
-        c2.readvector(ces);
-
+        if (special) {
+            c2.readvector(ces);
+            c2.simplifycover();
+            CvrsReturn.push_back(c2);
+        }
         CvrsReturn.push_back(c);
-        CvrsReturn.push_back(c2);
     }
     return CvrsReturn;
 }
 
+
 inline void Hellytheory::findncovers(std::vector<Cover>* Cvar, Cover hintCover, int n) {
     std::vector<Edges> Es;
     int vsz = V->size();
-    if (vsz > 31) {
-        std::cout << "Unable to process more than 31 vertices.\n";
+    if (vsz > 24) {
+        std::cout << "Unable to process more than 24 vertices.\n";
         return;
     }
     //Es.size() = (1 << vsz);
 
-    std::cout << "Using maxcliquesize = " << n << "\n";
+    //std::cout << "Using maxcliquesize = " << n << "\n";
+
+
+    // auto-add to hintCover all pure triangles
+
+    std::vector<Edges> hintEs {};
+    Cover hintCover2 {};
+    for (int k = 0; k < vsz; ++k) {
+        std::vector<Edge> N = E->vertexneighborsasedges(V->getdata(k));
+        int cnt = 0;
+        if (N.size() == 2) {
+            Edge e{};
+            vertextype v1 = N[0].first;
+            vertextype v2 = N[0].second;
+            vertextype v3 = ((N[1].first == N[0].first) || (N[1].first == N[0].second)) ? N[1].second : N[1].first;
+            if (N[0].first == N[1].first) {
+                e.first = N[0].second;
+                e.second = N[1].second;
+            } else {
+                if (N[0].first == N[1].second) {
+                    e.first = N[0].second;
+                    e.second = N[1].first;
+                } else {
+                    if (N[0].second == N[1].second) {
+                        e.first = N[0].first;
+                        e.second = N[1].first;
+                    } else {
+                        if (N[0].second == N[1].first) {
+                            e.first = N[0].first;
+                            e.second = N[0].second;
+                        }
+                    }
+                }
+            }
+            // if N is already in hintCover then ignore
+            for (int h = 0; h < hintCover.size(); ++h) {
+                if (hintCover.getdata(h).size() == 3) {
+                    Edge e2 = hintCover.getdata(h)[0];
+                    Edge e3 = hintCover.getdata(h)[1];
+                    cnt += e2.first == v1;
+                    cnt += e2.first == v2;
+                    cnt += e2.first == v3;
+                    cnt += e2.second == v1;
+                    cnt += e2.second == v2;
+                    cnt += e2.second == v3;
+                    cnt += e3.first == v1;
+                    cnt += e3.first == v2;
+                    cnt += e3.first == v3;
+                    cnt += e3.second == v1;
+                    cnt += e3.second == v2;
+                    cnt += e3.second == v3;
+                }
+            }
+            if (cnt < 4) {
+                N.push_back(e);
+                Edges Etmp{};
+                Etmp.readvector(N);
+                hintEs.push_back(Etmp);
+            }
+        }
+    }
+
+    for (int m = 0; m < hintCover.size(); ++m) {
+        hintEs.push_back(hintCover.getdata(m));
+    }
+    hintCover2.readvector(hintEs);
 
     Es.clear();
     //std::cout << "resize " << (1<<n) << "\n";
     //Es.resize(1 << n);
-    enumeratecompletesets(&Es, hintCover );
+
+
+    enumeratecompletesets(&Es, hintCover2, n);
+
+    //TO DO:
+    // for each Edges EE in Es
+    //    if its size is >= 3
+    //       make a cover C and give it hintcover and EE
+    //       call simplifycover
+    // remove duplicates from this new Es.
+
+
+    Edges EE{};
+    Cover c{};
+    std::vector<Edges> Es2{};
+//    for (int i = 0; i < Es.size(); ++i) {
+//        if (Es[i].size() >= 3) {
+//            Es2.push_back(Es[i]);
+//            for (int j = 0; j < hintCover.size(); ++j) {
+//                Es2.push_back(hintCover.getdata(j));
+//            }
+//            c.readvector(Es2);
+//            //c.simplifycover();
+
+//        }
+//    }
+    //Es.clear();
+    //for (int k = 0; k < c.size(); ++k)
+    //    Es.push_back(c.getdata(k));
+
     for (int m = 0; m < Es.size(); ++m) {
         if (Es[m].size() > 0)
             std::cout << "Edges [";
         else
-            std::cout << "Blank edge\n";
+            std::cout << "Blank edge at m= " << m << "\n";
         for (int j = 0; j < Es[m].size(); ++j) {
             std::cout << "[" << FV->lookup(Es[m][j].first) << ", " << FV->lookup(Es[m][j].second) << "], ";
         }
         if (Es[m].size() > 0)
             std::cout << "\b\b] \n";
     }
-    std::vector<Cover> Cvrs = recursefindcovers(&Es,&hintCover, Es.size());
-    for (int n = 0; n < Cvrs.size();++n) {
+    std::vector<Cover> Cvrs = recursefindcovers(&Es, &hintCover2, Es.size());
+    for (int n = 0; n < Cvrs.size(); ++n) {
         //Cvrs[n].simplifycover();
-        Cvar->push_back(Cvrs[n]);
+        Cvar->push_back((Cvrs[n]));
     }
-}
-
-
-inline void Hellytheory::findncoversbare(std::vector<Cover>* Cvar, Cover hintCover, std::vector<Edges>* completeEdgesets, int n) {
-
-    // if n == 0 return hintCover
-
-    // n = n-1
-
-    // for every edgeset Es in completeedgesets
-    //    if Es size == n
-    //        split
-    // for every complete set Es of vertices/edges
-    //    add Es to a local copy of hintCover
-    //    create a vector Cstemp of Cover type
-    //    call findncoversbare( Cstemp, new hintCover, n)
-    // add each Cstemp to Cvar
-
-
-
-
-
-    // for each vertex v1
-    //    for each adjacent vertex v2
-    //        Etemp.push_back (v1,v2)
-    // for (i = 0; i < 2^^size(Etemp); ++i)
-    //
-    //        tempCover = hintCover;
-    //          tempCover.
-    //        findncoversbare( Cvar, hintCover
-    //        hintCover.add edge v1,v2
-    //        findncoversbare( Ctemp, hintCover, n )
-    //        combine Cvar with Ctemp
-    // "return" Cvar
-/*
-    if (n == 0) {
-        (*Cvar).clear();
-        (*Cvar).push_back(hintCover);
-        return;
-    }
-
-    n = n-1;
-
-    Cover Ctemp(hintCover);
-    Edges Etemp(0);
-    int vsz = V->size();
-    int esz = E->size();
-    for (int m = 0; m < vsz; ++m) {
-        vertextype v1 = V->getdata(m);
-        for (int n = 0; n < vsz; ++n) {
-            if (m != n) {
-                vertextype v2 = V->getdata(n);
-                for (int k=0;k<esz;++k) {
-                    Edge e = E->getdata(k);
-                    bool adjacent = ((e.first == v1 && e.second == v2) || (e.first == v2 && e.second == v2));
-                    if (adjacent)
-
-                    findncoversbare(*Ctemp, hintCover, n);
-                }
-            }
-        }
-    }
-*/
-
-    //std::vector<Cover> allc {};
-    /*if (n <= 0) {
-        Cvar.clear();
-        Cvar.push_back(hintCover);
-        std::cout << "Zero " << Cvar.size() << "\n";
-        return;
-    }
-    n = n-1;*/
-
-/*
-    s=0;
-    int k = 0;
-    int Cesz = CompleteEs.size();
-    for (int i = 0; i < Cesz; ++i) {
-        std::cout << "Round 1: CompleteEs[i].size() = " << CompleteEs[i].size() << "\n";
-    }
-    std::cout << "Cesz " << Cesz << "\n";
-
-
-                Es.push_back(CompleteEs[i]);
-//                std::cout << "i, CompleteEs[i].size()=" << i << ", " << CompleteEs[i].size() << "\n";
-//                std::cout << "\n";
-            }
-            //for (int n = 0; n < Es.size(); ++n) {
-            // simplifycover
-
-        }
-        (*Cvar)[k].readvector(Es);
-        ++k;
-    }*/
 }
 
 inline void Hellytheory::findrscovers( Cover hintCover ) {
     V->resume();
     E->resume();
     C->resume();
+    maxcliquesize = 5;
 
     //std::vector<Edges> Evar {};
     std::vector<Cover> Cvar {};
     //Evar.resize(1 << V->size());
     //enumeratecompletesets(&Evar, hintCover );
-    findncovers(&Cvar, hintCover,V->size());
+    findncovers(&Cvar, hintCover,maxcliquesize);
 
-    /*
-    for (int n = 0; n < Evar.size(); ++n) {
-        if (Evar[n].size() > 0)
-            std::cout << "Edges ";
-        for (int j = 0; j < Evar[n].size(); ++j) {
-            std::cout << "[" << Evar[n][j].first << ", " << Evar[n][j].second << "], ";
-        }
-        if (Evar[n].size() > 0)
-            std::cout << "\b\b  \n";
-    }
-*/
+
     int Cvsz = Cvar.size();
     bool Brs[Cvsz];
     for (int m = 0; m < Cvsz; ++m) {
         C = &(Cvar[m]);
         //FC->matchiedata();
-        std::cout << "Cover " << m << "\n";
-        for (int n = 0; n < C->size(); ++n) {
-            Edges es = C->getdata(n);
-            int essz = es.size();
-            if (essz > 0)
-                std::cout << "...Edges [";
-            for (int j=0; j < essz; ++j) {
-                std::cout << "["<< FV->lookup(es.getdata(j).first) << "," << FV->lookup(es.getdata(j).second) << "], ";
-            }
-            if (essz > 0)
-                std::cout << "\b\b]\n";
-        }
-
         if (checkcover()) {
             Brs[m] = checkrs();
-            std::cout << (Brs[m] ? "checkrs() returns true." : "checkrs() returns false.");
-            std::cout << "\n";
+        } else
+            Brs[m] = false;
+
+        if (Brs[m]) {
+            std::cout << "Found in edge-complete cover " << m << "\n";
+            for (int n = 0; n < C->size(); ++n) {
+                Edges es = C->getdata(n);
+                int essz = es.size();
+                if (essz > 0)
+                    std::cout << "...Edges [";
+                for (int j = 0; j < essz; ++j) {
+                    std::cout << "[" << FV->lookup(es.getdata(j).first) << "," << FV->lookup(es.getdata(j).second)
+                              << "], ";
+                }
+                if (essz > 0)
+                    std::cout << "\b\b]\n";
+            }
+            std::cout << "checkrs() returns true.\n";
         } else {
-            std::cout << "Does not cover all edges\n";
+            //std::cout << "Does not cover all edges\n";
             Brs[m] = false;
         }
+
     }
 
     std::cout << "Recap: ";
@@ -721,61 +925,6 @@ inline void Hellytheory::findrscovers( Cover hintCover ) {
 
 
 
-
-
-
-
-
-
-
-/*
-    auto emptyCover = new Cover(1);
-    auto emptyEdges = new Edges(0);
-    emptyCover->setdata(*emptyEdges,0);
-    //start by enumerating the complete sets
-    int sz = 1;
-    int vsz = V->size();
-    for (int c = 0; c < vsz; ++c)
-        sz = sz * 2;
-    std::vector<Cover> vsubsets;
-    vsubsets.resize(sz);
-    findncovers( &vsubsets, *emptyCover, vsz ); // replace with E->maxclique() once coded
-
-    for (int n = 0; n < vsubsets.size(); ++n) {
-        std::cout << "Cover " << n;
-        for (int j = 0; j < vsubsets[n].size(); ++j)
-            for (int k = 0; k < vsubsets[n].getdata(j).size(); ++k) {
-                Edge e = vsubsets[n].getdata(j).getdata(k);
-                std::cout << FV->lookup(e.first) << " " << FV->lookup(e.second) << " ";
-            }
-        std::cout << "\n";
-    }
-
-    bool brs[sz];
-    for (int n = 0; n < sz; ++n) {
-        C = &vsubsets[n];
-        std::cout << "Cover " << n << ": [";
-        for (int j = 0; j < C->size(); ++j) {
-            for (int k = 0; k < C->getdata(j).size(); ++k) {
-                Edge e = C->getdata(j).getdata(k);
-                std::cout << "[" << FV->lookup(e.first) << "," << FV->lookup(e.second) << "], ";
-            }
-            std::cout << "\b\b], [";
-        }
-        std::cout << "\b\b\n";
-        if (checkcover()) {
-            brs[n] = checkrs();
-            std::cout << "is RS cover? ";
-            if (brs[n])
-                std::cout << "True";
-            else
-                std::cout << "False";
-            std::cout  << "\n";
-        } else {
-            brs[n] = false;
-            //std::cout << "does not cover all edges.\n";
-        }
-    }*/
 }
 
 #endif //HELLYTOOLCPP_HELLYTHEORY_H
