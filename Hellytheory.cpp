@@ -329,36 +329,6 @@ inline bool completeedgeset( std::vector<Edge>* EE) {
     return allfound;
 }
 
-/*inline std::vector<Edge> completeedgesetinfo( std::vector<Edge>* EE)
-{
-    const int EEsz = (*EE).size();
-    std::vector<vertextype> v{};
-    v.resize(2 * EEsz);
-    int vcnt = 0;
-    for (; vcnt < EEsz; ++vcnt) {
-        v[2 * vcnt] = (*EE)[vcnt].first;
-        v[2 * vcnt + 1] = (*EE)[vcnt].second;
-    }
-    bool allfound = true;
-    for (int m = 0; (m < (2*EEsz)) && allfound; ++m)
-        for (int n = m + 1; (n < (2*EEsz)) && allfound; ++n) {
-            if (v[m] != v[n]) {
-                bool found = false;
-                for (int k = 0; (k < EEsz) && !found; ++k) {
-                    Edge e = (*EE)[k];
-                    Edge e2{};
-                    e2.first = v[m];
-                    e2.second = v[n];
-                    found = (found || ((e.first == e2.first)&&(e.second == e2.second))
-                             || ((e.first == e2.second)&&(e.second == e2.first)));
-                }
-                allfound = (allfound && found);
-            }
-        }
-    return allfound;
-}*/
-
-
 
 inline std::vector<Edges> Hellytheory::enumeratevertexsubsets(  std::vector<Edge>* EE, Cover hintCover) {
     Edges es{};
@@ -678,10 +648,10 @@ inline std::vector<Cover> Hellytheory::recursefindcovers(std::vector<Edges>* com
     }
 
     --progress;
-    if (progress > 17)
+    if (progress > 19)
         std::cout << "Recursion depth high = " << progress << "\n";
     Cvrs = recursefindcovers(completeedgesets,hintCover,progress);
-    if (progress > 17)
+    if (progress > 19)
         std::cout << "Note deep recursion depth ...returns..." << progress << "\n";
     std::vector<Cover> CvrsReturn {};
     CvrsReturn.clear();
@@ -691,6 +661,8 @@ inline std::vector<Cover> Hellytheory::recursefindcovers(std::vector<Edges>* com
     // for each cover
     // branch into one invocation with es added and one invocation without es added
 
+    CvrsReturn.resize(Csz*2);  // looks like about 5% speed-up exlicitly managing this vector's size as opposed to push_back calls
+    int cri = 0;
     for (int m = 0; m < Csz; ++m) {
 
         //std::cout << "m, Csz = " << m << ","<<Csz<<"\n";
@@ -698,43 +670,62 @@ inline std::vector<Cover> Hellytheory::recursefindcovers(std::vector<Edges>* com
         //FC->simplifycover();
 
         Cover c = Cvrs[m];
-        c.simplifycover();
+        C = &c;
+        if (!checkrs()) // 25 seconds becomes 1 second (96% speed-up)
+            continue; // envision cutting off an entire branch...
+
+        //c.simplifycover();       // massive slowdown (15%) in some cases, and speedup (10%) in others albeit with many duplicates
         //Cvrs[m].simplifycover();
 
 
         std::vector<Edges> ces {};
         ces.clear();
         int csz = c.size();
+        std::vector<Edges> ces2 {};
+        ces2.resize(csz + 1);
         ces.resize(csz +1);
         int l2 = 0;
         for (int k = 0; k < csz; ++k) {
-            bool dupe = false;
-            for (int l = 0; l < k; ++l)
-                dupe = (dupe || (ces[l] == c[k]));
-            if (!dupe) {
-                ces[l2] = c.getdata(k);
-                ++l2;
+            Edges es2 = c.getdata(k);
+            if (es2.size() >= 3) {
+                bool dupe = false;
+                for (int l = 0; l < k; ++l)
+                    dupe = (dupe || (ces[l] == c[k]));
+                if (!dupe) {
+                    ces[l2] = es2;
+                    ces2[l2] = es2;
+                    ++l2;
+                }
             }
         }
+        ces2.resize(l2);
         bool dupe = false;
-        for (int l = 0; l < l2; ++l)
-            dupe = (dupe || (ces[l] == es));
-        bool special = false;
-        if (!dupe) {
-            ces[l2] = es;
-            ++l2;
-            special = true;
-        }
+        //for (int l = 0; l < l2; ++l)
+        //    dupe = (dupe || (ces[l] == es));
+        //bool special = false;
+        //if (!dupe) {
+            if (es.size() >= 3) {
+                ces[l2] = es;
+                ++l2;
+        //        special = true;
+            }
+        //}
         ces.resize(l2);
 
         Cover c2 {};
-        if (special) {
+        //if (special) {
             c2.readvector(ces);
-            c2.simplifycover();
-            CvrsReturn.push_back(c2);
-        }
-        CvrsReturn.push_back(c);
+        //    c2.simplifycover();    // massive slowdown (33% if both call it)
+            CvrsReturn[cri]=c2;;
+            ++cri;
+        //}
+        Cover c3 {};
+        c3.readvector(ces2);
+        //c3.simplifycover();
+        CvrsReturn[cri] = c3;
+        ++cri;
     }
+    CvrsReturn.resize(cri);
     return CvrsReturn;
 }
 
@@ -742,10 +733,10 @@ inline std::vector<Cover> Hellytheory::recursefindcovers(std::vector<Edges>* com
 inline void Hellytheory::findncovers(std::vector<Cover>* Cvar, Cover hintCover, int n) {
     std::vector<Edges> Es;
     int vsz = V->size();
-    if (vsz > 24) {
-        std::cout << "Unable to process more than 24 vertices.\n";
-        return;
-    }
+    //if (vsz > 24) {
+    //    std::cout << "Unable to process more than 24 vertices.\n";
+    //    return;
+    //}
     //Es.size() = (1 << vsz);
 
     //std::cout << "Using maxcliquesize = " << n << "\n";
@@ -918,8 +909,50 @@ inline void Hellytheory::findrscovers( Cover hintCover ) {
             cnt++;
         }
     }
-    std::cout << cnt << " passed.\n";
+    std::cout << cnt << " of " << Cvsz << " passed.\n";
 
+    std::cout << "Checking for duplicates...\n"; // so far provided the recursion isn't using simplifycover,
+                                                 // the removal of duplicates turns up empty
+                                                 // Moreover, much of the time as recorded is due to this loop;
+                                                 // feel free to comment out, therefore, all this duplicate check
+
+    std::vector<Cover> Cvar2 {};
+    Cvar2.resize(Cvsz);
+    int idx2 = 0;
+    for (int m = 0; m < Cvsz; ++m) {
+        bool found = false;
+        if (!Brs[m])
+            continue;
+        for (int l = 0; !found && (l < m); ++l) {
+            found = (found || (Cvar[m] == Cvar[l]));
+        }
+        if (!found) {
+            Cvar2[idx2] = Cvar[m];
+            ++idx2;
+        }
+    }
+    Cvar2.resize(idx2);
+    std::cout << "Among those that are RS-covers, found: " << cnt-idx2 << " duplicates...\n";
+    if (cnt > idx2) {
+        std::cout << "Recap; no dupes:\n";
+        for (int m = 0; m < idx2; ++m) {
+            std::cout << "Found in edge-complete cover: "<< m << "\n";
+            Cover c = Cvar2[m];
+            for (int n = 0; n < c.size(); ++n) {
+                Edges es = c.getdata(n);
+                int essz = es.size();
+                if (essz > 0)
+                    std::cout << "...Edges [";
+                for (int j = 0; j < essz; ++j) {
+                    std::cout << "[" << FV->lookup(es.getdata(j).first) << "," << FV->lookup(es.getdata(j).second)
+                              << "], ";
+                }
+                if (essz > 0)
+                    std::cout << "\b\b]\n";
+            }
+
+        }
+    }
 
 
 

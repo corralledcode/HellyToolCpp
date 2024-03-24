@@ -14,45 +14,6 @@
 
 int main(int argc, char *argv[]) {
     std::cout << "Hello, World!" << std::endl;
-/*
-    auto bpd = new Batchprocesseddata<int>(10);
-    bpd->process();
-    bpd->setdata(13,0);
-    for (int i = 0; i < bpd->size(); ++i) {
-        std::cout << bpd->getdata(i) << '\n';
-    }
-
-    uint ar[] {0,1,2,3,4,5,6,7,8,9};
-
-    auto V = new Vertices(ar,10);
-
-    V->pause();
-    for (int i = 0; i < 10; ++i) {
-        V->setdata(10-i,i);
-    }
-    std::cout << '\n';
-    V->resume();
-    for (int i = 0; i < 10; ++i) {
-        std::cout << V->getdata(i) << ", ";
-    }
-    std::cout << "\n";
-
-    auto FV = new Formatvertices(10);
-    FV->pause();
-    for (int n = 0; n < FV->size();++n) {
-        auto lp = new lookuppair<vertextype>;
-        std::cin >> lp->sr;
-        lp->ir = n;
-        FV->setdata({lp->ir,lp->sr},n);
-    }
-    FV->resume();
-
-    for (int n = 0; n < FV->size();++n)
-        std::cout << '{' << FV->getdata(n).sr << ',' << FV->getdata(n).ir << '}' << ", ";
-    std::cout << '\n';
-    for (int n = 0; n < FV->size();++n)
-        std::cout << FV->lookup(FV->getdata(n).sr ) << ", ";
-*/
 
     std::ifstream ifs;
     std::istream* s = &std::cin;
@@ -148,6 +109,7 @@ int main(int argc, char *argv[]) {
         es.push_back(C->getdata(i));
     }
     hintCover.readvector(es);
+    hintCover.simplifycover();
     starttime = std::chrono::high_resolution_clock::now();
 
     T->findrscovers(hintCover);

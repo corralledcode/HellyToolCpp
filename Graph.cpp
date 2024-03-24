@@ -215,6 +215,7 @@ public:
     ~Cover() {
         //
     }
+
     void process() override {
         bool p = paused();
         pause();
@@ -250,6 +251,24 @@ public:
         return covered;
     }
     void simplifycover();
+
+    bool operator==(const Cover& other) const {
+        int sz = size();
+        if (sz != other.size())
+            return false;
+        int n = 0;
+        bool allfound = true;
+        while ((n < sz) && allfound) {
+            bool found = false;
+            for (int m = 0; (m < sz) && !found; ++m) {
+                found = (found || (getdata(n) == other.getdata(m))); // or call sortdata
+            }
+            allfound = allfound && found;
+            ++n;
+        }
+        return allfound;
+    }
+
 
 };
 
