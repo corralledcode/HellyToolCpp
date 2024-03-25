@@ -477,29 +477,29 @@ inline std::vector<Edges> Hellytheory::enumeratevertexsubsets(  std::vector<Edge
     int cnt2 = cnt;
     const int width = E->maxvertex+1;
     for (int k = 0; (k < vcnt); ++k) {
-        const int ktimeswidth = (k * width);
+        const int ktimeswidth = (v[k] * width);
         for (int l = k + 1; (l < vcnt); ++l) {
-            if (E->vertexadjacency[ktimeswidth + l]) {
-            if (E->adjacent(v[k], v[l])) {
+            if (E->vertexadjacency[ktimeswidth + v[l]]) {
+            //if (E->adjacent(v[k], v[l])) {
                 Edge etemp{};
                 etemp.first = v[k];
                 etemp.second = v[l];
                 Etmp[cnt2] = etemp;
                 ++cnt2;
             }
-//            bool found = false;
-//            for (int m = 0; (m < Esz) && !found; ++m) {
-//                Edge etemp;
-//                etemp.first = v[k];
-//                etemp.second = v[l];
-//                if ((*E)[m] == etemp) {
-//                    Etmp[cnt2] = etemp;
-//                    ++cnt2;
-//                    found = true;
-//
-//
- //               }
-            }
+            //bool found = false;
+            //for (int m = 0; (m < Esz) && !found; ++m) {
+            //    Edge etemp;
+            //    etemp.first = v[k];
+            //    etemp.second = v[l];
+            //    if ((*E)[m] == etemp) {
+            //        Etmp[cnt2] = etemp;
+            //        ++cnt2;
+            //        found = true;
+
+
+              //  }
+            //}
         }
     }
 
@@ -527,7 +527,7 @@ inline std::vector<Edges> Hellytheory::enumeratevertexsubsets(  std::vector<Edge
     //prime place to check that cnt2 or bin is not too large, but would slow because of an additional check
 
     int bin = ((1 << cnt2) - 1);
-    //std::cout << "using bin = " << bin << "\n";
+    std::cout << "using bin = " << bin << "\n";
     std::vector<std::vector<Edge>> Ps{};
     Ps.clear();
     Ps.resize(bin + 1);
