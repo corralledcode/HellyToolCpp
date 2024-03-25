@@ -19,19 +19,21 @@ using strtype = std::string;
 
 class Vertices : public Batchprocesseddata<vertextype> {
 public:
-    vertextype maxvertex = 0;
+    vertextype maxvertex = 0;  // should be -1, but by choice vertextype is unsigned
     Vertices(std::vector<vertextype>& verticesin) : Batchprocesseddata<vertextype>(verticesin) {
+        bool p = paused();
         pause();
         maxvertex = verticesin.size();
         //for (int n=0;n<maxvertex;++n){
         //    setdata(verticesin[n],n);
         //}
-        resume();
     }
     Vertices(int s) : Batchprocesseddata<vertextype>(s) {
+        bool p = paused();
         pause();
         setsize(s);
-        resume();
+        if (!p)
+            resume();
     }
     Vertices() : Batchprocesseddata<vertextype>() {}
     ~Vertices() {}
@@ -73,6 +75,7 @@ public:
     vertextype maxvertex=0;
     vertextype* edgematrix; // adjacency matrix
     vertextype* edgeadjacency; // two dimensional array
+    bool* vertexadjacency; // two dimensional array
     int maxdegree=0;  // the size of each edge's adjacency list
     Edges(std::vector<Edge> edgesin) : Batchprocesseddata<Edge>(edgesin) {
         maxvertex = computemaxvertex();
@@ -80,7 +83,8 @@ public:
         auto sz = size();
         edgematrix = new vertextype[maxdegree*sz];
         edgeadjacency = new vertextype[sz*sz];
-        computeadjacencymatrix();
+        vertexadjacency = new bool[(maxvertex+1) * (maxvertex+1)];
+        computevertexadjacency();
         computeedgematrix();
     }
     Edges(int s) : Batchprocesseddata<Edge>(s) {
@@ -138,7 +142,9 @@ public:
         return allfound;
     }
 
-    std::vector<vertextype> vertexneighbors(vertextype v) {
+    Vertices getvertices();
+
+    inline std::vector<vertextype> vertexneighbors(vertextype v) {
         const int sz = size();
         std::vector<vertextype> adjacent {};
         for (int n = 0; n < sz; ++n) {
@@ -153,7 +159,7 @@ public:
         return adjacent;
     }
 
-    std::vector<Edge> vertexneighborsasedges(vertextype v) {
+    inline std::vector<Edge> vertexneighborsasedges(vertextype v) {
         const int sz = size();
         std::vector<Edge> adjacentedges {};
         for (int n = 0; n < sz; ++n) {
@@ -168,7 +174,7 @@ public:
         return adjacentedges;
     }
 
-    int vertexdegree(vertextype v) {
+    inline int vertexdegree(vertextype v) {
         const int sz = size();
         std::vector<vertextype> adjacent {};
         for (int n = 0; n < sz; ++n) {
@@ -183,11 +189,15 @@ public:
         return adjacent.size();
     }
 
+    inline bool adjacent(vertextype v1, vertextype v2) {
+        //if (v1 > maxvertex || v2 > maxvertex)
+        //    return false;
+        return vertexadjacency[v1*(maxvertex+1) + v2];
+
+    }
 
 private:
-    void computeadjacencymatrix();
-    void computeedgematrix();
-    int computemaxdegree();
+    void computevertexadjacency();
     int computemaxvertex() {
         int tempmax = vertextype(0);
         int sz = size();
@@ -198,11 +208,17 @@ private:
         maxvertex = tempmax;
         return maxvertex;
     }
+
+    void computeadjacencymatrix();
+    void computeedgematrix();
+    int computemaxdegree();
 };
 
 
 class Cover : public Batchprocesseddata<Edges> {
 public:
+    int maxedgesize = -1;
+
     Cover(std::vector<Edges> edgesin) : Batchprocesseddata<Edges>(edgesin) {
         //
     }
@@ -224,6 +240,7 @@ public:
         for (int n = 0;n < sz;++n) {
             getdata(n).process();
         }
+        computemaxedgesize();
         if (!p)
             resume();
     };
@@ -251,6 +268,15 @@ public:
         return covered;
     }
     void simplifycover();
+
+    int computemaxedgesize() {
+        int esz = size();
+        maxedgesize = -1;
+        for (int k = 0; k < esz; ++k) {
+            maxedgesize = ((getdata(k).size() > maxedgesize) ? getdata(k).size() : maxedgesize);
+        }
+        return maxedgesize;
+    }
 
     bool operator==(const Cover& other) const {
         int sz = size();
@@ -293,6 +319,7 @@ inline void Vertices::process() {
 inline void Edges::process() {
     //delete[] edgematrix; // getting "double free" message when not commented out
     //delete[] edgeadjacency;
+    sortdata();
     auto sz = size();
     for (int n = 0; n < sz; ++n) {
         Edge e = getdata(n);
@@ -303,6 +330,10 @@ inline void Edges::process() {
     //std::cout << "maxvertex: " << maxvertex << " maxdegree: " << maxdegree << "size()" << size() << "\n";
     edgeadjacency = new vertextype[sz * maxdegree];
     edgematrix = new vertextype[sz * sz];
+    vertexadjacency = new bool[(maxvertex+1) * (maxvertex+1)];
+    computeadjacencymatrix();
+    computeedgematrix();
+    computevertexadjacency();
     Batchprocesseddata<Edge>::process();
 }
 
@@ -348,21 +379,82 @@ inline int Edges::computemaxdegree() {
     return maxdegree;
 }
 
-
-
-inline void Edges::computeadjacencymatrix() {
-    //
+inline bool edgesmeet( Edge e1, Edge e2 ) {
+    return ((e1.first == e2.first)
+            || (e1.first == e2.second)
+            || (e1.second == e2.first)
+            || (e1.second == e2.second));
 }
 
+inline Vertices Edges::getvertices() {
+    int sz = size();
+    std::vector<vertextype> v {};
+    v.resize(sz*2);
+    int idx = 0;
+    for (int n = 0; n < sz; ++n) {
+        v[idx] = getdata(n).first;
+        v[idx+1] = getdata(n).second;
+        idx += 2;
+    }
+    v.resize(idx);
+    Vertices V {};
+    V.readvector(v);
+    return V;
+}
+
+inline void Edges::computeadjacencymatrix() {
+    // this matrix consists of the vertex where two edges meet...
+}
+
+inline void Edges::computevertexadjacency() {
+    //Vertices v = getvertices();
+    //v.removeduplicates();
+    vertextype sz = maxvertex+1;
+    int Esz = size();
+    for (int n = 0; n < sz; ++n) {
+        for (int m = 0; m < sz; ++m) {
+            bool found = false;
+            for (int j = 0; !found && (j < Esz); ++j) {
+                Edge e = getdata(j);
+                found = (found || (((e.first == n) && (e.second == m)) ||
+                        ((e.second == n) && (e.first == m))));
+            }
+            vertexadjacency[n * sz + m] = found;
+            // std::cout << " " << vertexadjacency[n * sz + m];
+        }
+        // std::cout << "\n";
+    }
+}
+
+
 inline void Edges::computeedgematrix() {
-    //
+
+/*
+    int Esz = size();
+    Vertices v = getvertices();
+    int sz = v.size();
+    for (int j = 0; j < Esz; ++j) {
+        int pos = 0;
+        for (int k = 0; k < sz; ++k) {
+            for (int l = 0; l < Esz; ++l) {
+                if (getdata(j).first == getdata(l).first &&)
+            }
+            if (edgesmeet(getdata(j),getdata(k))) {
+                edgematrix[maxdegree*j + pos] = (getdata(k).first == getdata(j).first) ? getdata(k).second : getdata(k).first;
+                ++pos;
+                std::cout << "Edge " << getdata(j).first << " " << getdata(j).second << " adjacent vertex " << edgematrix[maxdegree*j + pos];
+            }
+            std::cout << "\n";
+        } // now fill each row with zeroes where applicable
+    }
+*/
 }
 
 inline void Cover::simplifycover() { // this should be made instead into a Hellytheory method
     int sz = size();
     std::vector<Edges> Es {};
     Es.clear();
-    //sortdata();
+    sortdata();
     for (int n = 0; n < sz; ++n) {
         Edges es = getdata(n);
         int essz = es.size();

@@ -141,11 +141,9 @@ public:
     Formatedges* FE;
     Formatcover* FC;
     int maxcliquesize = 0;
-    int maxedgesincover = 0;
 
     bool checkcover();
     bool checkcoverlegal();
-    bool checkHelly();  // unlike checkrs, checkHelly does not check if it is a covering set nor if edges are legal
     bool checkrs();
     void findrscovers(Cover hintCover);
     std::vector<Cover> recursefindcovers( std::vector<Edges>* completeedgesets, Cover* hintCover, int progress);
@@ -209,66 +207,44 @@ inline bool Hellytheory::checkcoverlegal() {
     return allalllegal;
 }
 
-inline bool Hellytheory::checkHelly() {
-    const int tsz = E->triangles.size();
-    bool Helly = true;
-    for (int n = 0; (n < tsz && Helly); ++n) {
+inline bool Hellytheory::checkrs() {
+    V->resume();
+    E->resume();
+    C->resume();
+#ifdef VERBOSE
+    std::cout << "Triangles size " << E->triangles.size() << "\n";
+#endif
+#ifdef CHECKS
+#ifdef VERBOSE
+    std::cout << (checkcover() ? "All edges covered.\n" : "All edges not covered.\n");
+    std::cout << (checkcoverlegal() ? "" : "Illegal edges found in the cover.\n");
+#endif
+#endif
+    int tsz = E->triangles.size();
+    bool rscover = true;
+    for (int n = 0; (n < tsz && rscover); ++n) {
         std::vector<Edges> Emeet{};
         const auto [tfirst, tsecond, tthird] = E->triangles[n];
 #ifdef VERBOSE
         std::cout << "Triangle: <"<< FV->lookup(tfirst) << ", "<< FV->lookup(tsecond)
                  << ", " << FV->lookup(tthird) << ">\n";
 #endif
-        // need to track maxedgesincover to know what size vector to use for Emeet...
         int csz = C->size();
         for (int i = 0; i < csz; ++i) {
             Edges es = C->getdata(i);
-            //es.resume();
-            vertextype maxvertex = es.maxvertex; // provided processed
-
-            vertextype sz = maxvertex+1;
-
-
-            /*
-            int Esz = es.size();
-            for (int n = 0; n < sz; ++n) {
-                for (int m = 0; m < sz; ++m) {
-                    std::cout << " " << es.vertexadjacency[n * sz + m];
-                }
-                std::cout << "\n";
-            }
-            std::cout << "--- ";
-
-            std::cout << "edges size " << es.size() << "maxvertex " << maxvertex << "\n" << "t123: " << tfirst << " " << tsecond << " " << tthird << "\n";
-            std::cout << "Adjacent: " << es.adjacent(tfirst,tsecond) << "\n";
-            std::cout << "Adjacent: " << es.adjacent(tfirst,tthird) << "\n";
-            std::cout << "Adjacent: " << es.adjacent(tsecond,tthird) << "\n";
-*/
-
-            //int cnt = 0;
-            //if ((tfirst <= maxvertex) && (tsecond <= maxvertex))
-            //    cnt += es.adjacent(tfirst, tsecond);
-            //if ((tfirst <= maxvertex) && (tthird <= maxvertex))
-            //    cnt += es.adjacent(tfirst, tthird);
-            //if (cnt < 2)
-            //    if ((tsecond <= maxvertex) && (tthird <= maxvertex))
-            //        cnt += es.adjacent(tsecond, tthird);
-
-
             bool twoofthree = false;
             int esz = es.size();
             int j = 0;
-            int cnt2 = 0;
             while (j < esz && !twoofthree) {
                 Edge e = es.getdata(j);
-                cnt2 = 0;
+                int cnt = 0;
                 if (e.first == tfirst || e.second == tfirst)
-                    ++cnt2;
+                    ++cnt;
                 if (e.first == tsecond || e.second == tsecond)
-                    ++cnt2;
+                    ++cnt;
                 if (e.first == tthird || e.second == tthird)
-                    ++cnt2;
-                twoofthree = (cnt2 >= 2);
+                    ++cnt;
+                twoofthree = (cnt >= 2);
                 if (twoofthree) {
 #ifdef VERBOSE
                     std::cout << "   meets Cover: ";
@@ -282,20 +258,6 @@ inline bool Hellytheory::checkHelly() {
                 }
                 ++j;
             }
-            //if (cnt2 != cnt)
-            //    std::cout << "Differing counts..." << cnt << " " <<cnt2 << "\n";
-            //if (cnt >= 1) {
-            //    Emeet.push_back(es);
-//#ifdef VERBOSE2
-//                int esz = es.size();
-//                std::cout << "   meets Cover: ";
-//                    for (int l = 0; l < esz; ++l) {
-//                        Edge e2 = es.getdata(l);
-//                        std::cout << FV->lookup(e2.first) << " " << FV->lookup(e2.second) << ", ";
-//                    }
-//                    std::cout << "\b\b  \n";
-//#endif
-            //}
         }
         bool sharedvertex = false;
         int vsz = V->size();
@@ -323,32 +285,15 @@ inline bool Hellytheory::checkHelly() {
             sharedvertex = sharedvertex || shared;
             ++k;
         }
-        Helly = Helly && sharedvertex;
+        rscover = rscover && sharedvertex;
 #ifdef VERBOSE
-        if (Helly)
+        if (rscover)
             std::cout << "   All meet.\n";
         else
             std::cout << "   Fail to meet at this triangle\n";
 #endif
     }
-    return Helly;
-}
-
-
-inline bool Hellytheory::checkrs() {
-    V->resume();
-    E->resume();
-    C->resume();
-#ifdef VERBOSE
-    std::cout << "Triangles size " << E->triangles.size() << "\n";
-#endif
-#ifdef CHECKS
-#ifdef VERBOSE
-    std::cout << (checkcover() ? "All edges covered.\n" : "All edges not covered.\n");
-    std::cout << (checkcoverlegal() ? "" : "Illegal edges found in the cover.\n");
-#endif
-#endif
-    return checkHelly();
+    return rscover;
 
 }
 
@@ -421,89 +366,52 @@ inline std::vector<Edges> Hellytheory::enumeratevertexsubsets(  std::vector<Edge
     v.resize(Vsz - 2);
     for (int n = 0; n < Vsz; ++n) {  // prime opportunity to use adjacency matrix
         vertextype newv = V->getdata(n);
-        //if ((newv == e.first) && (newv == e.second))
-        //    continue;
-
-        Edge e1;
-        Edge e2;
-
-        bool found1 = (E->adjacent(newv, e.first));
-        bool found2 = (E->adjacent(newv, e.second));
-        if (found1 && found2) {
+        if ((newv != e.first) && (newv != e.second)) {
+            Edge e1{};
             e1.first = ((newv < e.first) ? newv : e.first);
             e1.second = ((newv > e.first) ? newv : e.first);
+            Edge e2{};
             e2.first = ((newv < e.second) ? newv : e.second);
             e2.second = ((newv > e.second) ? newv : e.second);
-        }
-
-
-        //  if ((newv != e.first) && (newv != e.second)) {
-        //Edge e1{};
-
-
-        //e1.first = ((newv < e.first) ? newv : e.first);
-        //e1.second = ((newv > e.first) ? newv : e.first);
-        //Edge e2{};
-        //e2.first = ((newv < e.second) ? newv : e.second);
-        //e2.second = ((newv > e.second) ? newv : e.second);
-        //    bool found1_ = false;
-        //    bool found2_ = false;
-        //    for (int m = 0; (m < Esz) && !(found1_ && found2_); ++m) {
-        //        vertextype newv1 = E->getdata(m).first;
-        //        vertextype newv2 = E->getdata(m).second;
-        //       found1_ = (found1_ || (E->getdata(m) == e1));
-        //        found2_ = (found2_ || (E->getdata(m) == e2));
-        //    }
-        //    if ((found1 != found1_) || (found2 != found2_))
-        //        std::cout << "not equal \n";
-//            if (found1 && found2)) {
-        if (found1 && found2) {
-            //std::cout << "newv passes " << newv << "\n";
-            Etmp[cnt] = e1;
-            Etmp[cnt + 1] = e2;
-            cnt += 2;
-            v[vcnt] = newv;
-            vcnt++;
+            bool found1 = false;
+            bool found2 = false;
+            for (int m = 0; (m < Esz) && !(found1 && found2); ++m) {
+                vertextype newv1 = E->getdata(m).first;
+                vertextype newv2 = E->getdata(m).second;
+                found1 = (found1 || (E->getdata(m) == e1));
+                found2 = (found2 || (E->getdata(m) == e2));
+            }
+            if (found1 && found2) {
+                //std::cout << "newv passes " << newv << "\n";
+                Etmp[cnt] = e1;
+                Etmp[cnt + 1] = e2;
+                cnt += 2;
+                v[vcnt] = newv;
+                vcnt++;
+            }
         }
     }
-    // outcome: v is a set of vertices that form a triangle with e;
-    //  and Etmp has added to it the actual edges of that triangle
 
 
+    //std::vector<Edge> Etmp2 {};
     Etmp.resize(cnt + vcnt); //sloppy
     //Etmp2.resize(cnt+1);
     //std::cout << "Etmp2.resize first round = " << cnt+1 << "\n";
-
     int cnt2 = cnt;
-    const int width = E->maxvertex+1;
-    for (int k = 0; (k < vcnt); ++k) {
-        const int ktimeswidth = (k * width);
+    for (int k = 0; (k < vcnt); ++k)
         for (int l = k + 1; (l < vcnt); ++l) {
-            if (E->vertexadjacency[ktimeswidth + l]) {
-            if (E->adjacent(v[k], v[l])) {
-                Edge etemp{};
+            bool found = false;
+            for (int m = 0; (m < Esz) && !found; ++m) {
+                Edge etemp;
                 etemp.first = v[k];
                 etemp.second = v[l];
-                Etmp[cnt2] = etemp;
-                ++cnt2;
-            }
-//            bool found = false;
-//            for (int m = 0; (m < Esz) && !found; ++m) {
-//                Edge etemp;
-//                etemp.first = v[k];
-//                etemp.second = v[l];
-//                if ((*E)[m] == etemp) {
-//                    Etmp[cnt2] = etemp;
-//                    ++cnt2;
-//                    found = true;
-//
-//
- //               }
+                if ((*E)[m] == etemp) {
+                    Etmp[cnt2] = etemp;
+                    ++cnt2;
+                    found = true;
+                }
             }
         }
-    }
-
-
     Etmp.resize(cnt2);
 
     //std::cout << "Etmp2.resize = " << cnt2 << "\n";
@@ -523,8 +431,6 @@ inline std::vector<Edges> Hellytheory::enumeratevertexsubsets(  std::vector<Edge
         }
     }
     Etemp.resize(cnt3);
-
-    //prime place to check that cnt2 or bin is not too large, but would slow because of an additional check
 
     int bin = ((1 << cnt2) - 1);
     //std::cout << "using bin = " << bin << "\n";
@@ -662,12 +568,10 @@ inline std::vector<Edges> Hellytheory::enumeratevertexsubsets(  std::vector<Edge
             dupe = dupe || (EsReturn[r] == EsReturn[s]);
         }
         if (!dupe) {
-            //EsReturn2[pos4].pause();
             EsReturn2[pos4].setsize(EsReturn[r].size());
             //std::cout << "EsReturn.size() " << EsReturn[r].size() << "\n";
             for (int i = 0; i < EsReturn[r].size(); ++i)
                 EsReturn2[pos4].setdata(EsReturn[r].getdata(i),i);
-            //EsReturn2[pos4].resume();
             ++pos4;
         }
     }
@@ -703,10 +607,8 @@ inline void Hellytheory::enumeratecompletesets(std::vector<Edges>* Evar, Cover h
 
     Es = enumeratevertexsubsets(&es, hintCover);
     for (int m=0;m<Es.size();++m)
-        if (Es[m].size() >= 3) {
-            Es[m].process();
+        if (Es[m].size() >= 3)
             Evar->push_back(Es[m]);
-        }
     return;
 }
 
@@ -740,87 +642,88 @@ inline std::vector<Cover> Hellytheory::recursefindcovers(std::vector<Edges>* com
     std::vector<Cover> Cvrs {};
     if (progress <= 0) {
         Cover c {*hintCover};
-        Cvrs.push_back(c); // be sure higher up to check that hintCover passes checkHelly(). Done.
-
+        Cvrs.push_back(c);
         //std::cout << "Ground zero recursefindcovers, Cvrs.size()"<<Cvrs.size()<<"\n";
         return Cvrs;
     }
 
     --progress;
-#ifdef MONITORRECURSIONDEPTH
     if (progress > 19)
         std::cout << "Recursion depth high = " << progress << "\n";
-#endif
     Cvrs = recursefindcovers(completeedgesets,hintCover,progress);
-#ifdef MONITORRECURSIONDEPTH
     if (progress > 19)
         std::cout << "Note deep recursion depth ...returns..." << progress << "\n";
-#endif
     std::vector<Cover> CvrsReturn {};
     CvrsReturn.clear();
-    int Cvrssz = Cvrs.size();
+    int Csz = Cvrs.size();
     Edges es;
     es = (*completeedgesets)[progress];
     // for each cover
     // branch into one invocation with es added and one invocation without es added
 
-    CvrsReturn.resize(Cvrssz*2);  // looks like about 5% speed-up exlicitly managing this vector's size as opposed to push_back calls
+    CvrsReturn.resize(Csz*2);  // looks like about 5% speed-up exlicitly managing this vector's size as opposed to push_back calls
     int cri = 0;
-    for (int m = 0; m < Cvrssz; ++m) {
+    for (int m = 0; m < Csz; ++m) {
+
+        //std::cout << "m, Csz = " << m << ","<<Csz<<"\n";
+        //C = &(Cvrs[m]);
+        //FC->simplifycover();
 
         Cover c = Cvrs[m];
-        //C = &c;
-        //if (!checkHelly())
-        //    continue;
-        //if (!Tmp[m].second) // 25 seconds becomes 1 second (96% speed-up)
-        //    continue; // envision cutting off an entire branch...
+        C = &c;
+        if (!checkrs()) // 25 seconds becomes 1 second (96% speed-up)
+            continue; // envision cutting off an entire branch...
 
         //c.simplifycover();       // massive slowdown (15%) in some cases, and speedup (10%) in others albeit with many duplicates
         //Cvrs[m].simplifycover();
 
 
-        C = &c;
-        if (checkHelly()) {
-            std::vector<Edges> ces {};
-            ces.clear();
-            int csz = c.size();
-            std::vector<Edges> ces2 {};
-            ces2.resize(csz + 1);
-            ces.resize(csz +1);
-            int l2 = 0;
-            for (int k = 0; k < csz; ++k) {
-                Edges es2 = c.getdata(k);
-                if (es2.size() >= 3) {
-                    bool dupe = false;
-                    for (int l = 0; l < k; ++l)
-                        dupe = (dupe || (ces[l] == c[k]));
-                    if (!dupe) {
-                        ces[l2] = es2;
-                        ces2[l2] = es2;
-                        ++l2;
-                    }
+        std::vector<Edges> ces {};
+        ces.clear();
+        int csz = c.size();
+        std::vector<Edges> ces2 {};
+        ces2.resize(csz + 1);
+        ces.resize(csz +1);
+        int l2 = 0;
+        for (int k = 0; k < csz; ++k) {
+            Edges es2 = c.getdata(k);
+            if (es2.size() >= 3) {
+                bool dupe = false;
+                for (int l = 0; l < k; ++l)
+                    dupe = (dupe || (ces[l] == c[k]));
+                if (!dupe) {
+                    ces[l2] = es2;
+                    ces2[l2] = es2;
+                    ++l2;
                 }
             }
-            ces2.resize(l2);
+        }
+        ces2.resize(l2);
+        bool dupe = false;
+        //for (int l = 0; l < l2; ++l)
+        //    dupe = (dupe || (ces[l] == es));
+        //bool special = false;
+        //if (!dupe) {
             if (es.size() >= 3) {
                 ces[l2] = es;
                 ++l2;
-
+        //        special = true;
             }
-            ces.resize(l2);
+        //}
+        ces.resize(l2);
 
-            Cover c3 {};
-            c3.readvector(ces2);
-            CvrsReturn[cri] = c3;
-            ++cri;
-            Cover c2{};
+        Cover c2 {};
+        //if (special) {
             c2.readvector(ces);
-            C = &c2;
-            if (checkHelly()) {
-                CvrsReturn[cri] = c2;
-                ++cri;
-            }
-        }
+        //    c2.simplifycover();    // massive slowdown (33% if both call it)
+            CvrsReturn[cri]=c2;;
+            ++cri;
+        //}
+        Cover c3 {};
+        c3.readvector(ces2);
+        //c3.simplifycover();
+        CvrsReturn[cri] = c3;
+        ++cri;
     }
     CvrsReturn.resize(cri);
     return CvrsReturn;
@@ -921,6 +824,21 @@ inline void Hellytheory::findncovers(std::vector<Cover>* Cvar, Cover hintCover, 
     Edges EE{};
     Cover c{};
     std::vector<Edges> Es2{};
+//    for (int i = 0; i < Es.size(); ++i) {
+//        if (Es[i].size() >= 3) {
+//            Es2.push_back(Es[i]);
+//            for (int j = 0; j < hintCover.size(); ++j) {
+//                Es2.push_back(hintCover.getdata(j));
+//            }
+//            c.readvector(Es2);
+//            //c.simplifycover();
+
+//        }
+//    }
+    //Es.clear();
+    //for (int k = 0; k < c.size(); ++k)
+    //    Es.push_back(c.getdata(k));
+
     for (int m = 0; m < Es.size(); ++m) {
         if (Es[m].size() > 0)
             std::cout << "Edges [";
@@ -931,11 +849,11 @@ inline void Hellytheory::findncovers(std::vector<Cover>* Cvar, Cover hintCover, 
         }
         if (Es[m].size() > 0)
             std::cout << "\b\b] \n";
-        //Es[m].resume();
     }
     std::vector<Cover> Cvrs = recursefindcovers(&Es, &hintCover2, Es.size());
     for (int n = 0; n < Cvrs.size(); ++n) {
-        Cvar->push_back(Cvrs[n]);
+        //Cvrs[n].simplifycover();
+        Cvar->push_back((Cvrs[n]));
     }
 }
 
@@ -945,26 +863,20 @@ inline void Hellytheory::findrscovers( Cover hintCover ) {
     C->resume();
     maxcliquesize = 5;
 
-    C = &hintCover;
-    if (!checkHelly()) {
-        std::cout << "hintCover is not a Helly set. findrscovers aborted.\n";
-        return;
-    }
     //std::vector<Edges> Evar {};
-    std::vector<Cover> Tmp{};
+    std::vector<Cover> Cvar {};
     //Evar.resize(1 << V->size());
     //enumeratecompletesets(&Evar, hintCover );
-    findncovers(&Tmp, hintCover, maxcliquesize);
+    findncovers(&Cvar, hintCover,maxcliquesize);
 
 
-    int Tsz = Tmp.size();
-    bool Brs[Tsz];
-    for (int m = 0; m < Tsz; ++m) {
-        C = &(Tmp[m]);
+    int Cvsz = Cvar.size();
+    bool Brs[Cvsz];
+    for (int m = 0; m < Cvsz; ++m) {
+        C = &(Cvar[m]);
         //FC->matchiedata();
         if (checkcover()) {
-            Brs[m] = checkHelly();
-            //Brs[m] = Tmp[m].second; // second being the result of checkHelly()
+            Brs[m] = checkrs();
         } else
             Brs[m] = false;
 
@@ -982,7 +894,7 @@ inline void Hellytheory::findrscovers( Cover hintCover ) {
                 if (essz > 0)
                     std::cout << "\b\b]\n";
             }
-            std::cout << "checkcover, checkHelly() return true.\n";
+            std::cout << "checkrs() returns true.\n";
         } else {
             //std::cout << "Does not cover all edges\n";
             Brs[m] = false;
@@ -992,40 +904,39 @@ inline void Hellytheory::findrscovers( Cover hintCover ) {
 
     std::cout << "Recap: ";
     int cnt = 0;
-    for (int m = 0; m < Tsz; ++m) {
+    for (int m = 0;m<Cvsz;++m) {
         if (Brs[m]) {
             cnt++;
         }
     }
-    std::cout << cnt << " of " << Tsz << " passed.\n";
-
+    std::cout << cnt << " of " << Cvsz << " passed.\n";
 
     std::cout << "Checking for duplicates...\n"; // so far provided the recursion isn't using simplifycover,
-    // the removal of duplicates turns up empty
-    // Moreover, much of the time as recorded is due to this loop;
-    // feel free to comment out, therefore, all this duplicate check
+                                                 // the removal of duplicates turns up empty
+                                                 // Moreover, much of the time as recorded is due to this loop;
+                                                 // feel free to comment out, therefore, all this duplicate check
 
-    std::vector<Cover> Cvar2{};
-    Cvar2.resize(Tsz);
+    std::vector<Cover> Cvar2 {};
+    Cvar2.resize(Cvsz);
     int idx2 = 0;
-    for (int m = 0; m < Tsz; ++m) {
+    for (int m = 0; m < Cvsz; ++m) {
         bool found = false;
         if (!Brs[m])
             continue;
         for (int l = 0; !found && (l < m); ++l) {
-            found = (found || (Tmp[m] == Tmp[l]));
+            found = (found || (Cvar[m] == Cvar[l]));
         }
         if (!found) {
-            Cvar2[idx2] = Tmp[m];
+            Cvar2[idx2] = Cvar[m];
             ++idx2;
         }
     }
     Cvar2.resize(idx2);
-    std::cout << "Among those that are RS-covers, found: " << cnt - idx2 << " duplicates...\n";
+    std::cout << "Among those that are RS-covers, found: " << cnt-idx2 << " duplicates...\n";
     if (cnt > idx2) {
         std::cout << "Recap; no dupes:\n";
         for (int m = 0; m < idx2; ++m) {
-            std::cout << "Found in edge-complete cover: " << m << "\n";
+            std::cout << "Found in edge-complete cover: "<< m << "\n";
             Cover c = Cvar2[m];
             for (int n = 0; n < c.size(); ++n) {
                 Edges es = c.getdata(n);

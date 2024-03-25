@@ -1,6 +1,7 @@
 //define VERBOSE   // compile with verbose output enabled
+//define VERBOSE2
 #define CHECKS    // compile with (slow) checks in checkrs routine and elsewhere
-
+#define MONITORRECURSIONDEPTH
 
 #include <iostream>
 #include <fstream>
