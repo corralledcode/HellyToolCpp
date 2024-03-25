@@ -927,7 +927,7 @@ inline void Hellytheory::findncovers(std::vector<Cover>* Cvar, Cover hintCover, 
         else
             std::cout << "Blank edge at m= " << m << "\n";
         for (int j = 0; j < Es[m].size(); ++j) {
-            std::cout << "[" << FV->lookup(Es[m][j].first) << ", " << FV->lookup(Es[m][j].second) << "], ";
+            std::cout << "[" << FV->lookup(Es[m][j].first) << "," << FV->lookup(Es[m][j].second) << "], ";
         }
         if (Es[m].size() > 0)
             std::cout << "\b\b] \n";
