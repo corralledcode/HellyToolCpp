@@ -2,7 +2,7 @@
 //define VERBOSE2
 #define CHECKS    // compile with (slow) checks in checkrs routine and elsewhere
 #define MONITORRECURSIONDEPTH
-
+//define VERBOSETRIANGLE
 #include <iostream>
 #include <fstream>
 #include <regex>

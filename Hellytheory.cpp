@@ -212,12 +212,13 @@ inline bool Hellytheory::checkcoverlegal() {
 inline bool Hellytheory::checkHelly() {
     const int tsz = E->triangles.size();
     bool Helly = true;
-    for (int n = 0; (n < tsz && Helly); ++n) {
+    for (int n = 0; ((n < tsz) && Helly); ++n) {
         std::vector<Edges> Emeet{};
         const auto [tfirst, tsecond, tthird] = E->triangles[n];
-#ifdef VERBOSE
-        std::cout << "Triangle: <"<< FV->lookup(tfirst) << ", "<< FV->lookup(tsecond)
-                 << ", " << FV->lookup(tthird) << ">\n";
+#ifdef VERBOSETRIANGLE
+        std::cout << "Triangle: <"<< FV->lookup(tfirst) << ","<< FV->lookup(tsecond)
+                 << "," << FV->lookup(tthird) << ">\n";
+        }
 #endif
         // need to track maxedgesincover to know what size vector to use for Emeet...
         int csz = C->size();
@@ -259,7 +260,7 @@ inline bool Hellytheory::checkHelly() {
             int esz = es.size();
             int j = 0;
             int cnt2 = 0;
-            while (j < esz && !twoofthree) {
+            while ((j < esz) && !twoofthree) {
                 Edge e = es.getdata(j);
                 cnt2 = 0;
                 if (e.first == tfirst || e.second == tfirst)
@@ -270,13 +271,14 @@ inline bool Hellytheory::checkHelly() {
                     ++cnt2;
                 twoofthree = (cnt2 >= 2);
                 if (twoofthree) {
-#ifdef VERBOSE
+#ifdef VERBOSETRIANGLE
                     std::cout << "   meets Cover: ";
                     for (int l = 0; l < esz; ++l) {
                         Edge e2 = es.getdata(l);
                         std::cout << FV->lookup(e2.first) << " " << FV->lookup(e2.second) << ", ";
                     }
                     std::cout << "\b\b  \n";
+
 #endif
                     Emeet.push_back(es);
                 }
@@ -301,7 +303,7 @@ inline bool Hellytheory::checkHelly() {
         int vsz = V->size();
         int k = 0;
         int Emeets = Emeet.size();
-        while (k < vsz && !sharedvertex) {
+        while ((k < vsz) && !sharedvertex) {
             vertextype v = V->getdata(k);
 #ifdef VERBOSE
             //           std::cout << "vertex " << FV->lookup(v) << "\n";
@@ -315,15 +317,15 @@ inline bool Hellytheory::checkHelly() {
                 int esz = es.size();
                 while (!shared && (m < esz)) { // for each such cover see if it contains v
                     Edge e = es.getdata(m);
-                    shared = shared || ((e.first == v) || (e.second == v));
+                    shared = (shared || ((e.first == v) || (e.second == v)));
                     ++m;
                 }
                 ++l;
             }
-            sharedvertex = sharedvertex || shared;
+            sharedvertex = (sharedvertex || shared);
             ++k;
         }
-        Helly = Helly && sharedvertex;
+        Helly = (Helly && sharedvertex);
 #ifdef VERBOSE
         if (Helly)
             std::cout << "   All meet.\n";
@@ -497,7 +499,6 @@ inline std::vector<Edges> Hellytheory::enumeratevertexsubsets(  std::vector<Edge
             //        ++cnt2;
             //        found = true;
 
-
               //  }
             //}
         }
@@ -532,7 +533,7 @@ inline std::vector<Edges> Hellytheory::enumeratevertexsubsets(  std::vector<Edge
     Ps.clear();
     Ps.resize(bin + 1);
     int i = 0; // index for Ps
-    for (int c = 0; c <= bin; ++c) {
+    for (int c = bin; c >= 0; --c) {  // reversing the order speeds up 4or.dat from 3.3 to 1.77 seconds
         std::vector<Edge> P{};
         P.clear();
         P.resize(cnt2);
@@ -552,9 +553,13 @@ inline std::vector<Edges> Hellytheory::enumeratevertexsubsets(  std::vector<Edge
 
         //std::cout << "Checking P for completeness: " << P.size() << "\n";
 
-        if (completeedgeset(&P)) {
-            Ps[i] = P;
-            ++i;
+        if (j == 0 || j == 1 || j == 3 || j == 6 || j == 10 || j == 15 || j == 21 || j == 28 || j == 36 || j == 45) { //... triangular numbers
+            if (completeedgeset(&P)) {
+                Ps[i] = P;
+                ++i;
+
+
+            }
         }
     }
 
@@ -619,39 +624,101 @@ inline std::vector<Edges> Hellytheory::enumeratevertexsubsets(  std::vector<Edge
     //       EsReturn.copy out Es followed by c
 
     int pos = 0;
-    EsReturn.resize(TmpEs.size() * Ps.size());
+    int TEsz = TmpEs.size();
+    int Pssz = Ps.size();
+    EsReturn.resize(TEsz + Pssz);
     //std::cout << "EsReturn.resize " << TmpEs.size() << " " << Ps.size() << "\n";
-    for (int n = 0; n < TmpEs.size(); ++n) {
-        for (int k = 0; k < Ps.size(); ++k) {
+
+    /*
+    for (int n = 0; n < TEsz; ++n) {
+        for (int k = 0; k < Pssz; ++k) {
             // copy out Es followed by c
+
+
             std::vector<Edge> EsTmp{};
             EsTmp.clear();
-            EsTmp.resize(TmpEs[n].size() + Ps[k].size());
+            int Tsz = TmpEs[n].size();
+            int Psz = Ps[k].size();
+            EsTmp.resize(Tsz + Psz);
             int l;
-            for (l = 0; l < TmpEs[n].size(); ++l) {
+            for (l = 0; l < Tsz; ++l) {
                 EsTmp[l] = TmpEs[n][l];
             }
-            int m2 = 0;
-            for (int m = 0; m < Ps[k].size(); ++m) {
-                bool dupe = false;
-                for (int l2 = 0; l2 < TmpEs[n].size(); ++l2)
-                    dupe = dupe || (TmpEs[n][l2] == Ps[k][m]);
-                if (!dupe) {
-                    EsTmp[l + m2] = Ps[k][m];
-                    ++m2;
-                }
+            EsTmp.resize(l);
+            Edges E2 {};
+            E2.readvector(EsTmp);
+            EsReturn[pos] = E2;
+            ++pos;
+
+            std::vector<Edge> EsTmp2 {};
+            EsTmp2.clear();
+            EsTmp2.resize(Tsz + Psz);
+            for (int m = 0; m < Psz; ++m) {
+                EsTmp2[m] = Ps[k][m];
             }
-            if (completeedgeset(&EsTmp)) {
-                EsTmp.resize(l + m2);
-                Edges E2{};
-                E2.readvector(EsTmp);
+            EsTmp2.resize(Psz);
+            Edges E3 {};
+            E3.readvector(EsTmp2);
+            EsReturn[pos] = E3;
+            ++pos;
+
+            //int m2 = 0;
+            //for (int m = 0; m < Psz; ++m) {
+            //    bool dupe = false;
+            //    for (int l2 = 0; l2 < Tsz; ++l2)
+            //        dupe = dupe || (TmpEs[n][l2] == Ps[k][m]);
+            //    if (!dupe) {
+            //        EsTmp[l + m2] = Ps[k][m];
+            //        ++m2;
+            //    } else {
+            //        std::cout << "Dupe "<<Ps[k][m] << "\n";
+            //   }
+            //}
+            //int j2 = l+m2;
+            //if (j2 == 0 || j2 == 1 || j2 == 3 || j2 == 6 || j2 == 10 || j2 == 15 || j2 == 21 || j2 == 28 || j2 == 36 || j2 == 45) { //... triangular numbers
+            //EsTmp.resize(j2); // this call slows down by .3/1.35 percent but it was accidental that things worked with it place elsewhere
+            //if (completeedgeset(&EsTmp)) {
+            //    if (l ==3 && m2 == 3) {
+            //        std::cout<< EsTmp << "\n";
+            //    }
+            //    std::cout << "l + m2 " << l << " " << m2 << "\n";
+            //    Edges E2{};
+            //    E2.readvector(EsTmp);
                 //E2.removeduplicates();
-                EsReturn[pos] = E2;
-                ++pos;
-            }
+            //    EsReturn[pos] = E2;
+            //    ++pos;
+            //}
+            //}
         }
     }
-    EsReturn.resize(pos);
+*/
+
+
+    if (Pssz > 0)
+        for (int n = 0; n < TEsz; ++n) {
+            std::vector<Edge> EsTmp{};
+            int Tsz = TmpEs[n].size();
+            EsTmp.resize(Tsz);
+            int l;
+            for (l = 0; l < Tsz; ++l) {
+                EsTmp[l] = TmpEs[n][l];
+            }
+            Edges E2{};
+            E2.readvector(EsTmp);
+            EsReturn[pos] = E2;
+            ++pos;
+        }
+    if (TEsz > 0)
+        for (int k = 0; k < Pssz; ++k) {
+            // copy out Es followed by c
+            Edges E3{};
+            E3.readvector(Ps[k]);
+            EsReturn[pos] = E3;
+            ++pos;
+        }
+    //if (pos != TEsz + Pssz)
+    //    std::cout << "Not equal\n";
+    //EsReturn.resize(pos);
     std::vector<Edges> EsReturn2 {};
     EsReturn2.resize(EsReturn.size());
     int pos4 = 0; // index for EsReturn2
@@ -704,7 +771,7 @@ inline void Hellytheory::enumeratecompletesets(std::vector<Edges>* Evar, Cover h
     Es = enumeratevertexsubsets(&es, hintCover);
     for (int m=0;m<Es.size();++m)
         if (Es[m].size() >= 3) {
-            Es[m].process();
+            Es[m].resume();
             Evar->push_back(Es[m]);
         }
     return;
@@ -748,12 +815,12 @@ inline std::vector<Cover> Hellytheory::recursefindcovers(std::vector<Edges>* com
 
     --progress;
 #ifdef MONITORRECURSIONDEPTH
-    if (progress > 19)
+    if (progress > 21)
         std::cout << "Recursion depth high = " << progress << "\n";
 #endif
     Cvrs = recursefindcovers(completeedgesets,hintCover,progress);
 #ifdef MONITORRECURSIONDEPTH
-    if (progress > 19)
+    if (progress > 21)
         std::cout << "Note deep recursion depth ...returns..." << progress << "\n";
 #endif
     std::vector<Cover> CvrsReturn {};
@@ -947,7 +1014,7 @@ inline void Hellytheory::findrscovers( Cover hintCover ) {
 
     C = &hintCover;
     if (!checkHelly()) {
-        std::cout << "hintCover is not a Helly set. findrscovers aborted.\n";
+        std::cout << "hintCover is not a Helly set. findrscovers stopped.\n";
         return;
     }
     //std::vector<Edges> Evar {};
