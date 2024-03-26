@@ -460,28 +460,28 @@ inline void Cover::simplifycover() { // this should be made instead into a Helly
         int essz = es.size();
         // is every edge e in es covered by some one es2?
         bool allallcovered = false;
-        for (int k = 0; k < sz && !allallcovered; ++k) {
+        for (int k = 0; (k < sz) && !allallcovered; ++k) {
             if (k != n) {
                 Edges es2 = getdata(k);
                 // does es2 contain every edge e in es?
                 int es2sz = es2.size();
                 bool allcovered = true;
-                for (int m = 0; m < essz && allcovered; ++m) {
+                for (int m = 0; (m < essz) && allcovered; ++m) {
                     Edge e = es.getdata(m);
                     bool covered = false;
-                    for (int j = 0; j < es2sz && !covered; ++j) {
+                    for (int j = 0; (j < es2sz) && !covered; ++j) {
                         Edge e2 = es2.getdata(j);
-                        covered = covered || (e == e2);
+                        covered = (covered || (e == e2));
                     }
-                    allcovered = allcovered && covered;
+                    allcovered = (allcovered && covered);
                 }
-                allallcovered = allallcovered || allcovered;
+                allallcovered = (allallcovered || allcovered);
             }
         }
         if (!allallcovered) {
             Es.push_back(es);
         }
-#ifdef VERBOSE
+#ifdef VERBOSESIMPLIFYCOVER
         else {
             std::cout << "Removing covered edges ";
             for (int m = 0; m < es.size(); ++m)

@@ -3,6 +3,7 @@
 #define CHECKS    // compile with (slow) checks in checkrs routine and elsewhere
 #define MONITORRECURSIONDEPTH
 //define VERBOSETRIANGLE
+#define VERBOSESIMPLIFYCOVER
 #include <iostream>
 #include <fstream>
 #include <regex>
@@ -104,9 +105,9 @@ int main(int argc, char *argv[]) {
     auto duration = duration_cast<std::chrono::microseconds>(stoptime - starttime);
     std::cout << "Time elapsed: " << float(duration.count())/1000000 << "\n";
 
-    Cover hintCover;
+    Cover hintCover {};
     std::vector<Edges> es {};
-    for (int i = 0; i < C->size(); ++i) {
+    for (int i = 0; i < (C->size()); ++i) {
         es.push_back(C->getdata(i));
     }
     hintCover.readvector(es);
