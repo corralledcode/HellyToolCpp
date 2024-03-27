@@ -20,7 +20,6 @@ END
 d1d2d3e1e2e3
 b1c1z1 b1d1r1 c1e1s1 a1b1c1d1e1
 b2c2z2 b2d2r2 c2e2s2 a2b2c2d2e2
-b3c3z3 b3d3r3 c3e3s3
 END
 
 // This is the translation from (Python) HellyTool project to C++ HellyToolCpp project, of the

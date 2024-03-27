@@ -230,31 +230,6 @@ inline bool Hellytheory::checkHelly() {
             vertextype sz = maxvertex+1;
 
 
-            /*
-            int Esz = es.size();
-            for (int n = 0; n < sz; ++n) {
-                for (int m = 0; m < sz; ++m) {
-                    std::cout << " " << es.vertexadjacency[n * sz + m];
-                }
-                std::cout << "\n";
-            }
-            std::cout << "--- ";
-
-            std::cout << "edges size " << es.size() << "maxvertex " << maxvertex << "\n" << "t123: " << tfirst << " " << tsecond << " " << tthird << "\n";
-            std::cout << "Adjacent: " << es.adjacent(tfirst,tsecond) << "\n";
-            std::cout << "Adjacent: " << es.adjacent(tfirst,tthird) << "\n";
-            std::cout << "Adjacent: " << es.adjacent(tsecond,tthird) << "\n";
-*/
-
-            //int cnt = 0;
-            //if ((tfirst <= maxvertex) && (tsecond <= maxvertex))
-            //    cnt += es.adjacent(tfirst, tsecond);
-            //if ((tfirst <= maxvertex) && (tthird <= maxvertex))
-            //    cnt += es.adjacent(tfirst, tthird);
-            //if (cnt < 2)
-            //    if ((tsecond <= maxvertex) && (tthird <= maxvertex))
-            //        cnt += es.adjacent(tsecond, tthird);
-
 
             bool twoofthree = false;
             int esz = es.size();
@@ -284,20 +259,6 @@ inline bool Hellytheory::checkHelly() {
                 }
                 ++j;
             }
-            //if (cnt2 != cnt)
-            //    std::cout << "Differing counts..." << cnt << " " <<cnt2 << "\n";
-            //if (cnt >= 1) {
-            //    Emeet.push_back(es);
-//#ifdef VERBOSE2
-//                int esz = es.size();
-//                std::cout << "   meets Cover: ";
-//                    for (int l = 0; l < esz; ++l) {
-//                        Edge e2 = es.getdata(l);
-//                        std::cout << FV->lookup(e2.first) << " " << FV->lookup(e2.second) << ", ";
-//                    }
-//                    std::cout << "\b\b  \n";
-//#endif
-            //}
         }
         bool sharedvertex = false;
         int vsz = V->size();
@@ -439,26 +400,6 @@ inline std::vector<Edges> Hellytheory::enumeratevertexsubsets(  std::vector<Edge
         }
 
 
-        //  if ((newv != e.first) && (newv != e.second)) {
-        //Edge e1{};
-
-
-        //e1.first = ((newv < e.first) ? newv : e.first);
-        //e1.second = ((newv > e.first) ? newv : e.first);
-        //Edge e2{};
-        //e2.first = ((newv < e.second) ? newv : e.second);
-        //e2.second = ((newv > e.second) ? newv : e.second);
-        //    bool found1_ = false;
-        //    bool found2_ = false;
-        //    for (int m = 0; (m < Esz) && !(found1_ && found2_); ++m) {
-        //        vertextype newv1 = E->getdata(m).first;
-        //        vertextype newv2 = E->getdata(m).second;
-        //       found1_ = (found1_ || (E->getdata(m) == e1));
-        //        found2_ = (found2_ || (E->getdata(m) == e2));
-        //    }
-        //    if ((found1 != found1_) || (found2 != found2_))
-        //        std::cout << "not equal \n";
-//            if (found1 && found2)) {
         if (found1 && found2) {
             //std::cout << "newv passes " << newv << "\n";
             Etmp[cnt] = e1;
@@ -629,69 +570,6 @@ inline std::vector<Edges> Hellytheory::enumeratevertexsubsets(  std::vector<Edge
     EsReturn.resize(TEsz + Pssz);
     //std::cout << "EsReturn.resize " << TmpEs.size() << " " << Ps.size() << "\n";
 
-    /*
-    for (int n = 0; n < TEsz; ++n) {
-        for (int k = 0; k < Pssz; ++k) {
-            // copy out Es followed by c
-
-
-            std::vector<Edge> EsTmp{};
-            EsTmp.clear();
-            int Tsz = TmpEs[n].size();
-            int Psz = Ps[k].size();
-            EsTmp.resize(Tsz + Psz);
-            int l;
-            for (l = 0; l < Tsz; ++l) {
-                EsTmp[l] = TmpEs[n][l];
-            }
-            EsTmp.resize(l);
-            Edges E2 {};
-            E2.readvector(EsTmp);
-            EsReturn[pos] = E2;
-            ++pos;
-
-            std::vector<Edge> EsTmp2 {};
-            EsTmp2.clear();
-            EsTmp2.resize(Tsz + Psz);
-            for (int m = 0; m < Psz; ++m) {
-                EsTmp2[m] = Ps[k][m];
-            }
-            EsTmp2.resize(Psz);
-            Edges E3 {};
-            E3.readvector(EsTmp2);
-            EsReturn[pos] = E3;
-            ++pos;
-
-            //int m2 = 0;
-            //for (int m = 0; m < Psz; ++m) {
-            //    bool dupe = false;
-            //    for (int l2 = 0; l2 < Tsz; ++l2)
-            //        dupe = dupe || (TmpEs[n][l2] == Ps[k][m]);
-            //    if (!dupe) {
-            //        EsTmp[l + m2] = Ps[k][m];
-            //        ++m2;
-            //    } else {
-            //        std::cout << "Dupe "<<Ps[k][m] << "\n";
-            //   }
-            //}
-            //int j2 = l+m2;
-            //if (j2 == 0 || j2 == 1 || j2 == 3 || j2 == 6 || j2 == 10 || j2 == 15 || j2 == 21 || j2 == 28 || j2 == 36 || j2 == 45) { //... triangular numbers
-            //EsTmp.resize(j2); // this call slows down by .3/1.35 percent but it was accidental that things worked with it place elsewhere
-            //if (completeedgeset(&EsTmp)) {
-            //    if (l ==3 && m2 == 3) {
-            //        std::cout<< EsTmp << "\n";
-            //    }
-            //    std::cout << "l + m2 " << l << " " << m2 << "\n";
-            //    Edges E2{};
-            //    E2.readvector(EsTmp);
-                //E2.removeduplicates();
-            //    EsReturn[pos] = E2;
-            //    ++pos;
-            //}
-            //}
-        }
-    }
-*/
 
 
     if (Pssz > 0)
@@ -984,11 +862,25 @@ inline void Hellytheory::findncovers(std::vector<Cover>* Cvar, Cover hintCover, 
     //       call simplifycover
     // remove duplicates from this new Es.
 
+    // sort in descending order by size  --> 227 seconds becomes 233 seconds
+    // sort in ascending order by size --> 227 seconds becomes 192 seconds
+    //                                    --> 1.6 becomes .68
 
-    Edges EE{};
-    Cover c{};
-    std::vector<Edges> Es2{};
-    for (int m = 0; m < Es.size(); ++m) {
+    bool ch = true;
+    const int sz = Es.size();
+    while (ch) {
+        ch = false;
+        for (int i = 0; i < (sz - 1); ++i) {
+            if (Es[i+1].size() < Es[i].size()) {
+                Edges temp = Es[i];
+                Es[i] = Es[i+1];
+                Es[i+1] = temp;
+                ch = true;
+            }
+        }
+    }
+
+    for (int m = 0; m < sz; ++m) {
         if (Es[m].size() > 0)
             std::cout << "Edges [";
         else
