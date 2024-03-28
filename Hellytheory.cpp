@@ -6,9 +6,12 @@
 #define HELLYTOOLCPP_HELLYTHEORY_H
 
 #include <tuple>
+#include <thread>
+#include <functional>
 #include "Graph.cpp"
 #include "Theory.cpp"
 #include "Formatgraph.cpp"
+#include "thread_pool.cpp"
 
 class EdgesforHelly : public Edges {
 public:
@@ -132,6 +135,7 @@ inline void EdgesforHellyfast::process() {
         resume();
 }
 
+
 class Hellytheory : public Theory {
 public:
     Vertices* V;
@@ -143,16 +147,22 @@ public:
     int maxcliquesize = 0;
     int maxedgesincover = 0;
 
+
+    thread_pool pool;
+
     bool checkcover();
     bool checkcoverlegal();
     bool checkHelly();  // unlike checkrs, checkHelly does not check if it is a covering set nor if edges are legal
     bool checkrs();
+    bool checkHellyparameterized( const Cover* c );
     void findrscovers(Cover hintCover);
     std::vector<Cover> recursefindcovers( std::vector<Edges>* completeedgesets, Cover* hintCover, int progress);
     std::vector<Edges> enumeratevertexsubsets(  std::vector<Edge>* EE, Cover hintCover );
     void enumeratecompletesets(std::vector<Edges>* Evar, Cover hintCover, int n);
     void findncovers(std::vector<Cover>* Cvar, Cover hintCover, int n);
     void findncoversbare(std::vector<Cover>* Cvar, Cover hintCover, std::vector<Edges>* completeEdgesets, int n);
+
+    std::vector<Cover> threadfindcovers(const Cover* c, const Edges* es);
 
     Hellytheory() : Theory() {};
 };
@@ -209,7 +219,106 @@ inline bool Hellytheory::checkcoverlegal() {
     return allalllegal;
 }
 
+
+/* very unattractive code, but aiming to get the multi-threaded code FAST */
+
+// maybe speed up by pass by reference too
+inline bool Hellytheory::checkHellyparameterized(const Cover* C) {
+    const int tsz = E->triangles.size();
+    bool Helly = true;
+    for (int n = 0; ((n < tsz) && Helly); ++n) {
+        std::vector<Edges> Emeet{};
+        const auto [tfirst, tsecond, tthird] = E->triangles[n];
+#ifdef VERBOSETRIANGLE
+        std::cout << "Triangle: <"<< FV->lookup(tfirst) << ","<< FV->lookup(tsecond)
+             << "," << FV->lookup(tthird) << ">\n";
+    }
+#endif
+        // need to track maxedgesincover to know what size vector to use for Emeet...
+        int csz = C->size();
+        for (int i = 0; i < csz; ++i) {
+            Edges es = C->getdata(i);
+            //es.resume();
+            vertextype maxvertex = es.maxvertex; // provided processed
+
+            vertextype sz = maxvertex+1;
+
+
+
+            bool twoofthree = false;
+            int esz = es.size();
+            int j = 0;
+            int cnt2 = 0;
+            while ((j < esz) && !twoofthree) {
+                Edge e = es.getdata(j);
+                cnt2 = 0;
+                if (e.first == tfirst || e.second == tfirst)
+                    ++cnt2;
+                if (e.first == tsecond || e.second == tsecond)
+                    ++cnt2;
+                if (e.first == tthird || e.second == tthird)
+                    ++cnt2;
+                twoofthree = (cnt2 >= 2);
+                if (twoofthree) {
+#ifdef VERBOSETRIANGLE
+                    std::cout << "   meets Cover: ";
+                for (int l = 0; l < esz; ++l) {
+                    Edge e2 = es.getdata(l);
+                    std::cout << FV->lookup(e2.first) << " " << FV->lookup(e2.second) << ", ";
+                }
+                std::cout << "\b\b  \n";
+
+#endif
+                    Emeet.push_back(es);
+                }
+                ++j;
+            }
+        }
+        bool sharedvertex = false;
+        int vsz = V->size();
+        int k = 0;
+        int Emeets = Emeet.size();
+        while ((k < vsz) && !sharedvertex) {
+            vertextype v = V->getdata(k);
+#ifdef VERBOSE
+            //           std::cout << "vertex " << FV->lookup(v) << "\n";
+#endif
+            int l = 0;
+            bool shared = true;
+            while (shared && (l < Emeets)) { // check every cover sharing two of three vertices
+                Edges es = Emeet[l];
+                int m = 0;
+                shared = false;
+                int esz = es.size();
+                while (!shared && (m < esz)) { // for each such cover see if it contains v
+                    Edge e = es.getdata(m);
+                    shared = (shared || ((e.first == v) || (e.second == v)));
+                    ++m;
+                }
+                ++l;
+            }
+            sharedvertex = (sharedvertex || shared);
+            ++k;
+        }
+        Helly = (Helly && sharedvertex);
+#ifdef VERBOSE
+        if (Helly)
+        std::cout << "   All meet.\n";
+    else
+        std::cout << "   Fail to meet at this triangle\n";
+#endif
+    }
+    return Helly;
+}
+
+
+/* end of the FAST hack job */
+
 inline bool Hellytheory::checkHelly() {
+
+    return checkHellyparameterized(C);
+
+    /*
     const int tsz = E->triangles.size();
     bool Helly = true;
     for (int n = 0; ((n < tsz) && Helly); ++n) {
@@ -295,6 +404,8 @@ inline bool Hellytheory::checkHelly() {
 #endif
     }
     return Helly;
+
+     */
 }
 
 
@@ -680,6 +791,63 @@ inline std::vector<std::vector<bool>> recursebool(int n) {
     return B2;
 }
 
+inline std::vector<Cover> Hellytheory::threadfindcovers(const Cover* c, const Edges* es) {
+    //C = &c;
+    //if (!checkHelly())
+    //    continue;
+    //if (!Tmp[m].second) // 25 seconds becomes 1 second (96% speed-up)
+    //    continue; // envision cutting off an entire branch...
+
+    //c.simplifycover();       // massive slowdown (15%) in some cases, and speedup (10%) in others albeit with many duplicates
+    //Cvrs[m].simplifycover();
+
+
+    std::vector<Cover> CvrReturn {};
+    CvrReturn.clear();
+    //int l = 0;
+    if (checkHellyparameterized(c)) {
+        std::vector<Edges> ces{};
+        ces.clear();
+        int csz = c->size();
+        std::vector<Edges> ces2{};
+        ces2.resize(csz + 1);
+        ces.resize(csz + 1);
+        int l2 = 0;
+        for (int k = 0; k < csz; ++k) {
+            Edges es2 = c->getdata(k);
+            if (es2.size() >= 3) {
+                bool dupe = false;
+                for (int l = 0; l < k; ++l)
+                    dupe = (dupe || (ces[l] == (*c)[k]));
+                if (!dupe) {
+                    ces[l2] = es2;
+                    ces2[l2] = es2;
+                    ++l2;
+                }
+            }
+        }
+        ces2.resize(l2);
+        if (es->size() >= 3) {
+            ces[l2] = *es;
+            ++l2;
+
+        }
+        ces.resize(l2);
+
+        //Cover c3 {};
+        //c3.readvector(ces2);
+        CvrReturn.push_back(ces2);
+        //(*CvrsReturn)[l] = c3;
+        //++l;
+        Cover c2{};
+        c2.readvector(ces);
+        if (checkHellyparameterized(&c2)) {
+            CvrReturn.push_back(c2);
+        }
+    }
+    return CvrReturn;
+
+}
 
 inline std::vector<Cover> Hellytheory::recursefindcovers(std::vector<Edges>* completeedgesets, Cover* hintCover, int progress) {
     std::vector<Cover> Cvrs {};
@@ -702,70 +870,38 @@ inline std::vector<Cover> Hellytheory::recursefindcovers(std::vector<Edges>* com
         std::cout << "Note deep recursion depth ...returns..." << progress << "\n";
 #endif
     std::vector<Cover> CvrsReturn {};
-    CvrsReturn.clear();
+    //CvrsReturn.clear();
     int Cvrssz = Cvrs.size();
     Edges es;
     es = (*completeedgesets)[progress];
     // for each cover
     // branch into one invocation with es added and one invocation without es added
 
-    CvrsReturn.resize(Cvrssz*2);  // looks like about 5% speed-up exlicitly managing this vector's size as opposed to push_back calls
+    //std::vector<std::vector<Cover>> threadedCvrsReturn {};
+
+    std::vector<std::future<std::vector<Cover>>> threadpool;
+    threadpool.resize(Cvrssz);
+    CvrsReturn.resize(Cvrssz*2);  // looks like about 5% speed-up explicitly managing this vector's size as opposed to push_back calls
     int cri = 0;
     for (int m = 0; m < Cvrssz; ++m) {
-
         Cover c = Cvrs[m];
-        //C = &c;
-        //if (!checkHelly())
-        //    continue;
-        //if (!Tmp[m].second) // 25 seconds becomes 1 second (96% speed-up)
-        //    continue; // envision cutting off an entire branch...
-
-        //c.simplifycover();       // massive slowdown (15%) in some cases, and speedup (10%) in others albeit with many duplicates
-        //Cvrs[m].simplifycover();
-
-
-        C = &c;
-        if (checkHelly()) {
-            std::vector<Edges> ces {};
-            ces.clear();
-            int csz = c.size();
-            std::vector<Edges> ces2 {};
-            ces2.resize(csz + 1);
-            ces.resize(csz +1);
-            int l2 = 0;
-            for (int k = 0; k < csz; ++k) {
-                Edges es2 = c.getdata(k);
-                if (es2.size() >= 3) {
-                    bool dupe = false;
-                    for (int l = 0; l < k; ++l)
-                        dupe = (dupe || (ces[l] == c[k]));
-                    if (!dupe) {
-                        ces[l2] = es2;
-                        ces2[l2] = es2;
-                        ++l2;
-                    }
-                }
-            }
-            ces2.resize(l2);
-            if (es.size() >= 3) {
-                ces[l2] = es;
-                ++l2;
-
-            }
-            ces.resize(l2);
-
-            Cover c3 {};
-            c3.readvector(ces2);
-            CvrsReturn[cri] = c3;
+        threadpool[m] = pool.submit(std::bind(&Hellytheory::threadfindcovers,this,&Cvrs[m],&es) );
+    }
+    for (int m = 0; m < Cvrssz; ++m) {
+        while (threadpool[m].wait_for(std::chrono::seconds(0)) == std::future_status::timeout) {
+            pool.run_pending_task();
+        }
+        std::vector<Cover> CvrReturned = threadpool[m].get();
+        //std::cout << "CvrReturned.size() " << CvrReturned.size() << "\n";
+        if (CvrReturned.size() > 0) {
+            CvrsReturn[cri] = CvrReturned[0];
             ++cri;
-            Cover c2{};
-            c2.readvector(ces);
-            C = &c2;
-            if (checkHelly()) {
-                CvrsReturn[cri] = c2;
+            if (CvrReturned.size() > 1) {
+                CvrsReturn[cri] = CvrReturned[1];
                 ++cri;
             }
         }
+
     }
     CvrsReturn.resize(cri);
     return CvrsReturn;

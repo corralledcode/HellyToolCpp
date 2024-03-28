@@ -11,5 +11,7 @@ add_executable(HellyToolCpp main.cpp
         EdgesforHelly.cpp
         Theory.cpp
         Hellytheory.cpp
+        thread_pool.cpp
+        thread_safe_queue.cpp
 )
 

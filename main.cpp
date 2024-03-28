@@ -114,6 +114,8 @@ int main(int argc, char *argv[]) {
     hintCover.simplifycover();
     starttime = std::chrono::high_resolution_clock::now();
 
+    thread_safe_queue<int> rq;
+
     T->findrscovers(hintCover);
     stoptime = std::chrono::high_resolution_clock::now();
     duration = duration_cast<std::chrono::microseconds>(stoptime - starttime);
