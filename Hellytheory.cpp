@@ -8,6 +8,7 @@
 #include <tuple>
 #include <thread>
 #include <functional>
+#include <future>
 #include "Graph.cpp"
 #include "Theory.cpp"
 #include "Formatgraph.cpp"
@@ -151,6 +152,7 @@ public:
     thread_pool pool;
 
     bool checkcover();
+    bool checkcoverparameterized( Cover* c );
     bool checkcoverlegal();
     bool checkHelly();  // unlike checkrs, checkHelly does not check if it is a covering set nor if edges are legal
     bool checkrs();
@@ -163,19 +165,21 @@ public:
     void findncoversbare(std::vector<Cover>* Cvar, Cover hintCover, std::vector<Edges>* completeEdgesets, int n);
 
     std::vector<Cover> threadfindcovers(const Cover* c, const Edges* es);
+    std::vector<bool> threadcheckcover(const std::vector<Cover>* ctmp, const int startidx, const int stopidx);
+    std::vector<bool> threadcheckHelly(const std::vector<Cover>* ctmp, const int startidx, const int stopidx);
 
     Hellytheory() : Theory() {};
 };
 
-inline bool Hellytheory::checkcover() {
+inline bool Hellytheory::checkcoverparameterized( Cover* c ) {
     int esz = E->size();
     bool allcovered = true;
     for (int n = 0; n < esz; ++n) {
         bool covered = false;
         Edge e = E->getdata(n);
-        int csz = C->size();
+        int csz = c->size();
         for (int j = 0; j < csz && !covered; ++j) {
-            Edges es = C->getdata(j);
+            Edges es = c->getdata(j);
             int cesz = es.size();
             for (int k = 0; k < cesz && !covered; ++k) {
                 Edge ese = es.getdata(k);
@@ -189,6 +193,33 @@ inline bool Hellytheory::checkcover() {
         allcovered = allcovered && covered;
     }
     return allcovered;
+}
+
+
+inline std::vector<bool> Hellytheory::threadcheckcover(const std::vector<Cover>* ctmp, const int startidx, int const stopidx) {
+    std::vector<bool> result {};
+    result.resize(stopidx-startidx);
+    for (int n = startidx; n < stopidx;++n) {
+        Cover c = (*ctmp)[n];
+        result[n-startidx] = checkcoverparameterized(&c);
+    }
+    return result;
+}
+
+inline std::vector<bool> Hellytheory::threadcheckHelly(const std::vector<Cover>* ctmp, const int startidx, const int stopidx) {
+    std::vector<bool> result {};
+    result.resize(stopidx-startidx);
+    for (int n = startidx; n < stopidx; ++n) {
+        Cover c = (*ctmp)[n];
+        result[n-startidx] = checkHellyparameterized(&c);
+    }
+    return result;
+}
+
+
+
+inline bool Hellytheory::checkcover() {
+    return checkcoverparameterized(C);
 }
 
 inline bool Hellytheory::checkcoverlegal() {
@@ -1052,21 +1083,67 @@ inline void Hellytheory::findrscovers( Cover hintCover ) {
     findncovers(&Tmp, hintCover, maxcliquesize);
 
 
+    unsigned const thread_count = std::thread::hardware_concurrency();
     int Tsz = Tmp.size();
     bool Brs[Tsz];
-    for (int m = 0; m < Tsz; ++m) {
-        C = &(Tmp[m]);
-        //FC->matchiedata();
-        if (checkcover()) {
-            Brs[m] = checkHelly();
-            //Brs[m] = Tmp[m].second; // second being the result of checkHelly()
-        } else
-            Brs[m] = false;
+    float section = float(Tsz) / float(thread_count);
+    //std::cout << "Tsz " << Tsz<< ", section size: " << section << ", thread_count: " << thread_count << "\n";
 
-        if (Brs[m]) {
-            std::cout << "Found in edge-complete cover " << m << "\n";
-            for (int n = 0; n < C->size(); ++n) {
-                Edges es = C->getdata(n);
+    int cnt = 0;
+    std::vector<Cover> Tmp2 {};
+    Tmp2.resize(Tsz);
+    std::vector<std::future<std::vector<bool>>> t {};
+    t.resize(thread_count);
+    for (int k = 0; k < thread_count; ++k) {
+        const int startidx = int(k*section);
+        const int stopidx = int((k+1.0)*section);
+        //std::cout << "start, stop " << startidx << " " << stopidx<< "\n";
+        //if (k == thread_count-1)
+        //    stopidx = Tsz;
+        t[k] = std::async(&Hellytheory::threadcheckcover, this, &Tmp, startidx, stopidx);
+    }
+    for (int k = 0; k < thread_count; ++k) {
+        std::vector<bool> returned {};
+        const int startidx = int(k*section);
+        const int stopidx = int((k+1.0)*section);
+        returned = t[k].get();
+        for (int l = startidx; l < stopidx; ++l) {
+            Brs[l] = returned[l-startidx];
+            if (Brs[l]) {
+                Tmp2[cnt] = Tmp[l];
+                ++cnt;
+            }
+        }
+    }
+
+
+    int T2sz = cnt;
+    Tmp2.resize(cnt);
+    section = float(T2sz) / float(thread_count);
+    bool Brs2[T2sz];
+    t.clear();
+    t.resize(thread_count);
+    //std::cout << "T2sz " << T2sz<< ", section size: " << section << ", thread_count: " << thread_count << "\n";
+    for (int k = 0; k < thread_count; ++k) {
+        const int startidx = int(k*section);
+        const int stopidx = int((k+1.0)*section);
+        //std::cout << "start, stop " << startidx << " " << stopidx<< "\n";
+        t[k] = std::async(&Hellytheory::threadcheckHelly, this, &Tmp2, startidx, stopidx);
+    }
+    for (int k = 0; k < thread_count; ++k) {
+        const int startidx = int(k*section);
+        const int stopidx = int((k+1.0)*section);
+        std::vector<bool> returned {};
+        returned = t[k].get();
+        for (int l = startidx; l < stopidx; ++l) {
+            Brs2[startidx] = returned[l-startidx];
+        }
+    }
+    for (int m = 0; m < T2sz; ++m) {
+        if (Brs2[m]) {
+            std::cout << "Found in edge-complete cover\n";
+            for (int n = 0; n < Tmp2[m].size(); ++n) {
+                Edges es = Tmp2[m].getdata(n);
                 int essz = es.size();
                 if (essz > 0)
                     std::cout << "...Edges [";
@@ -1086,15 +1163,16 @@ inline void Hellytheory::findrscovers( Cover hintCover ) {
     }
 
     std::cout << "Recap: ";
+    /*
     int cnt = 0;
     for (int m = 0; m < Tsz; ++m) {
         if (Brs[m]) {
             cnt++;
         }
-    }
-    std::cout << cnt << " of " << Tsz << " passed.\n";
+    }*/
+    std::cout << T2sz << " of " << Tsz << " passed.\n";
 
-
+/*
     std::cout << "Checking for duplicates...\n"; // so far provided the recursion isn't using simplifycover,
     // the removal of duplicates turns up empty
     // Moreover, much of the time as recorded is due to this loop;
@@ -1137,7 +1215,7 @@ inline void Hellytheory::findrscovers( Cover hintCover ) {
 
         }
     }
-
+*/
 
 
 
