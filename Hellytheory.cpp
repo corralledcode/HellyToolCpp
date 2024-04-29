@@ -977,7 +977,7 @@ inline void Hellytheory::findncovers(std::vector<Cover>* Cvar, Cover hintCover, 
                     } else {
                         if (N[0].second == N[1].first) {
                             e.first = N[0].first;
-                            e.second = N[0].second;
+                            e.second = N[1].second;
                         }
                     }
                 }
