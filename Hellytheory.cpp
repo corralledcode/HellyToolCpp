@@ -910,6 +910,11 @@ inline std::vector<Cover> Hellytheory::recursefindcovers(std::vector<Edges>* com
 
     //std::vector<std::vector<Cover>> threadedCvrsReturn {};
 
+    hintCover->getdata(0).setmaxvertex(1);
+    hintCover->maxedgesize = 1;
+//    hintCover->getdata(0).maxdegree = 1;
+
+    std::cout << "Result: " << hintCover->getdata(0).maxvertex << "\n";
     std::vector<std::future<std::vector<Cover>>> threadpool;
     threadpool.resize(Cvrssz);
     CvrsReturn.resize(Cvrssz*2);  // looks like about 5% speed-up explicitly managing this vector's size as opposed to push_back calls
@@ -1136,7 +1141,7 @@ inline void Hellytheory::findrscovers( Cover hintCover ) {
         std::vector<bool> returned {};
         returned = t[k].get();
         for (int l = startidx; l < stopidx; ++l) {
-            Brs2[startidx] = returned[l-startidx];
+            Brs2[l] = returned[l-startidx];
         }
     }
     for (int m = 0; m < T2sz; ++m) {
